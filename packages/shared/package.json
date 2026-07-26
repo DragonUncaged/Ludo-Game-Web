@@ -1,0 +1,18 @@
+{
+  "name": "@ludo/shared",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "dev": "echo '@ludo/shared: nothing to run'",
+    "build": "tsc",
+    "typecheck": "tsc",
+    "test": "echo 'no tests'"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.0"
+  }
+}
