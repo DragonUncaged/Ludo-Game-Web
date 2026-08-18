@@ -6,6 +6,8 @@ import {
   getStatsByDeviceToken,
   loadRootEnv,
   upsertGuestUser,
+  getCoinBalance,
+  getCoinTransactionHistory,
 } from '@ludo/db';
 
 loadRootEnv();
@@ -50,6 +52,31 @@ app.get('/history/:deviceToken', async (req, res) => {
     res.json(await getHistoryByDeviceToken(req.params.deviceToken));
   } catch (err) {
     console.error('[api] history failed', err);
+    res.status(500).json({ error: 'DB_ERROR' });
+  }
+});
+
+// Coin system endpoints
+app.get('/coins/:deviceToken/balance', async (req, res) => {
+  if (!UUID_RE.test(req.params.deviceToken)) return res.status(400).json({ error: 'BAD_REQUEST' });
+  try {
+    const balance = await getCoinBalance(req.params.deviceToken);
+    if (balance === null) return res.status(404).json({ error: 'NOT_FOUND' });
+    res.json({ balance });
+  } catch (err) {
+    console.error('[api] coin balance failed', err);
+    res.status(500).json({ error: 'DB_ERROR' });
+  }
+});
+
+app.get('/coins/:deviceToken/transactions', async (req, res) => {
+  if (!UUID_RE.test(req.params.deviceToken)) return res.status(400).json({ error: 'BAD_REQUEST' });
+  const limit = Math.min(Number(req.query.limit) || 50, 500);
+  try {
+    const transactions = await getCoinTransactionHistory(req.params.deviceToken, limit);
+    res.json(transactions);
+  } catch (err) {
+    console.error('[api] coin transactions failed', err);
     res.status(500).json({ error: 'DB_ERROR' });
   }
 });

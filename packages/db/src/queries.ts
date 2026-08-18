@@ -121,7 +121,7 @@ export async function abandonMatch(matchId: number): Promise<void> {
 
 export async function getStatsByDeviceToken(deviceToken: string) {
   const res = await getPool().query(
-    `SELECT u.id, u.nickname, u.created_at,
+    `SELECT u.id, u.nickname, u.created_at, u.coin_balance,
             COALESCE(s.games_played, 0) AS games_played,
             COALESCE(s.wins, 0) AS wins,
             COALESCE(s.captures_made, 0) AS captures_made,
@@ -147,4 +147,141 @@ export async function getHistoryByDeviceToken(deviceToken: string, limit = 20) {
     [deviceToken, limit]
   );
   return res.rows;
+}
+
+// Coin system queries
+
+export async function getCoinBalance(deviceToken: string): Promise<number | null> {
+  const res = await getPool().query<{ coin_balance: string }>(
+    `SELECT coin_balance FROM guest_users WHERE device_token = $1`,
+    [deviceToken]
+  );
+  return res.rows[0] ? Number(res.rows[0].coin_balance) : null;
+}
+
+export interface CoinTransaction {
+  id: number;
+  userId: number;
+  matchId: number | null;
+  transactionType: 'bet_placed' | 'bet_won' | 'bet_lost' | 'initial_allocation' | 'admin_adjustment';
+  amount: number;
+  balanceAfter: number;
+  description: string | null;
+  createdAt: string;
+}
+
+export async function logCoinTransaction(
+  userId: number,
+  matchId: number | null,
+  transactionType: 'bet_placed' | 'bet_won' | 'bet_lost' | 'initial_allocation' | 'admin_adjustment',
+  amount: number,
+  balanceAfter: number,
+  description?: string
+): Promise<void> {
+  await getPool().query(
+    `INSERT INTO coin_transactions (user_id, match_id, transaction_type, amount, balance_after, description)
+     VALUES ($1, $2, $3, $4, $5, $6)`,
+    [userId, matchId, transactionType, amount, balanceAfter, description ?? null]
+  );
+}
+
+export async function getCoinTransactionHistory(deviceToken: string, limit = 50): Promise<CoinTransaction[]> {
+  const res = await getPool().query<{
+    id: string;
+    user_id: string;
+    match_id: string | null;
+    transaction_type: string;
+    amount: string;
+    balance_after: string;
+    description: string | null;
+    created_at: string;
+  }>(
+    `SELECT ct.id, ct.user_id, ct.match_id, ct.transaction_type, ct.amount, ct.balance_after, ct.description, ct.created_at
+     FROM guest_users u
+     JOIN coin_transactions ct ON ct.user_id = u.id
+     WHERE u.device_token = $1
+     ORDER BY ct.created_at DESC
+     LIMIT $2`,
+    [deviceToken, limit]
+  );
+  return res.rows.map(row => ({
+    id: Number(row.id),
+    userId: Number(row.user_id),
+    matchId: row.match_id ? Number(row.match_id) : null,
+    transactionType: row.transaction_type as CoinTransaction['transactionType'],
+    amount: Number(row.amount),
+    balanceAfter: Number(row.balance_after),
+    description: row.description,
+    createdAt: row.created_at,
+  }));
+}
+
+export async function updateCoinBalance(userId: number, newBalance: number): Promise<void> {
+  await getPool().query(
+    `UPDATE guest_users SET coin_balance = $2 WHERE id = $1`,
+    [userId, newBalance]
+  );
+}
+
+export async function awardCoins(
+  matchId: number,
+  winnerId: number | null,
+  winAmount: number,
+  loserIds: Array<{ userId: number | null; lossAmount: number }>
+): Promise<void> {
+  const client = await getPool().connect();
+  try {
+    await client.query('BEGIN');
+
+    // Award coins to winner
+    if (winnerId !== null && winAmount > 0) {
+      const balRes = await client.query<{ coin_balance: string }>(
+        `SELECT coin_balance FROM guest_users WHERE id = $1`,
+        [winnerId]
+      );
+      const row = balRes.rows[0];
+      if (row) {
+        const newBalance = Number(row.coin_balance) + winAmount;
+        await client.query(`UPDATE guest_users SET coin_balance = $2 WHERE id = $1`, [winnerId, newBalance]);
+        await client.query(
+          `INSERT INTO coin_transactions (user_id, match_id, transaction_type, amount, balance_after, description)
+           VALUES ($1, $2, 'bet_won', $3, $4, 'Match win')`,
+          [winnerId, matchId, winAmount, newBalance]
+        );
+      }
+    }
+
+    // Deduct coins from losers
+    for (const { userId, lossAmount } of loserIds) {
+      if (userId !== null && lossAmount > 0) {
+        const balRes = await client.query<{ coin_balance: string }>(
+          `SELECT coin_balance FROM guest_users WHERE id = $1`,
+          [userId]
+        );
+        const row = balRes.rows[0];
+        if (row) {
+          const newBalance = Math.max(0, Number(row.coin_balance) - lossAmount);
+          await client.query(`UPDATE guest_users SET coin_balance = $2 WHERE id = $1`, [userId, newBalance]);
+          await client.query(
+            `INSERT INTO coin_transactions (user_id, match_id, transaction_type, amount, balance_after, description)
+             VALUES ($1, $2, 'bet_lost', $3, $4, 'Match loss')`,
+            [userId, matchId, -lossAmount, newBalance]
+          );
+        }
+      }
+    }
+
+    // Update match with bet tracking
+    await client.query(
+      `UPDATE matches SET total_pool = $2 WHERE id = $1`,
+      [matchId, loserIds.reduce((sum, l) => sum + l.lossAmount, 0) + winAmount]
+    );
+
+    await client.query('COMMIT');
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
+  }
 }
