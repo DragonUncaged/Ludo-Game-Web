@@ -17,7 +17,10 @@ import { generateJoinCode } from '@ludo/shared';
 import type { JoinOptions, MoveIntent, SetOptionsIntent, TimeIntent } from '@ludo/shared';
 import {
   abandonMatch,
+  awardCoins,
   completeMatch,
+  dbEnabled,
+  getCoinBalance,
   insertMatch,
   safeWrite,
   updateSnapshot,
@@ -56,6 +59,7 @@ export class LudoRoom extends Room<LudoState> {
   private capturesBySeat: number[] = [];
   private turnNonce = 0;
   private deviceTokens = new Map<string, string>(); // sessionId → deviceToken
+  private userIds = new Map<string, number>(); // sessionId → userId (database ID)
   private matchId: number | null = null;
   /** monotonic broadcast counter — lets clients drop duplicate/stale event deliveries */
   private seq = 0;
@@ -107,6 +111,24 @@ export class LudoRoom extends Room<LudoState> {
       }
     });
 
+    this.onMessage('setBetAmount', (client, msg: { betAmount: number }) => {
+      if (client.sessionId !== this.state.hostSessionId) return;
+      if (this.state.roomPhase !== 'waiting') return;
+      const betAmount = Math.max(0, msg?.betAmount ?? 0);
+      this.state.betAmount = betAmount;
+      this.state.bettingStatus = betAmount === 0 ? 'accepted' : 'in_progress';
+      // Reset all acceptedBet flags when bet amount changes
+      this.state.players.forEach(p => { p.acceptedBet = false; });
+    });
+
+    this.onMessage('acceptBet', (client) => {
+      if (this.state.roomPhase !== 'waiting') return;
+      const seat = this.seatOf(client.sessionId);
+      if (seat < 0) return;
+      const player = this.state.players[seat]!;
+      player.acceptedBet = true;
+    });
+
     this.onMessage('time', (client, msg: TimeIntent) => {
       client.send('timeResult', { t0: msg?.t0 ?? 0, server: Date.now() });
     });
@@ -115,7 +137,7 @@ export class LudoRoom extends Room<LudoState> {
     this.clock.setInterval(() => this.watchdog(), 5000);
   }
 
-  onJoin(client: Client, options: JoinOptions) {
+  async onJoin(client: Client, options: JoinOptions) {
     if (this.state.roomPhase !== 'waiting') throw new ServerError(4001, 'ROOM_STARTED');
     const token = options?.deviceToken ?? '';
     if (token && process.env.ALLOW_DUP_DEVICE !== '1') {
@@ -124,9 +146,28 @@ export class LudoRoom extends Room<LudoState> {
       }
     }
     this.deviceTokens.set(client.sessionId, token);
+
+    // Load coin balance for this player
+    let coinBalance = 100; // default
+    let userId: number | null = null;
+    if (token && dbEnabled()) {
+      try {
+        const balance = await getCoinBalance(token);
+        if (balance !== null) coinBalance = balance;
+        // Also store userId for later coin transfer
+        const { getStatsByDeviceToken } = await import('@ludo/db');
+        const stats = await getStatsByDeviceToken(token);
+        if (stats) userId = stats.id;
+      } catch (err) {
+        console.error('[db] Failed to load coin balance', err);
+      }
+    }
+    if (userId) this.userIds.set(client.sessionId, userId);
+
     const player = new PlayerSchema();
     player.sessionId = client.sessionId;
     player.nickname = (options?.nickname || 'Player').slice(0, 20);
+    player.coinBalance = coinBalance;
     this.state.players.push(player);
     if (!this.state.hostSessionId) this.state.hostSessionId = client.sessionId;
   }
@@ -139,6 +180,7 @@ export class LudoRoom extends Room<LudoState> {
     if (this.state.roomPhase === 'waiting') {
       this.state.players.splice(seat, 1);
       this.deviceTokens.delete(client.sessionId);
+      this.userIds.delete(client.sessionId);
       if (this.state.hostSessionId === client.sessionId && this.state.players.length > 0) {
         this.state.hostSessionId = this.state.players[0]!.sessionId;
       }
@@ -205,6 +247,21 @@ export class LudoRoom extends Room<LudoState> {
   // ── game flow ────────────────────────────────────────────────────────────
 
   private startGame() {
+    // Validate betting if needed
+    if (this.state.betAmount > 0) {
+      for (const p of this.state.players) {
+        if (p.isBot) continue;
+        if (!p.acceptedBet) {
+          this.broadcast('error', { message: 'All players must accept the bet to start' });
+          return;
+        }
+        if (p.coinBalance < this.state.betAmount) {
+          this.broadcast('error', { message: `${p.nickname} doesn't have enough coins` });
+          return;
+        }
+      }
+    }
+
     const seats = this.maxClients;
     while (this.state.players.length < seats) {
       const bot = new PlayerSchema();
@@ -215,6 +272,7 @@ export class LudoRoom extends Room<LudoState> {
     }
     const colors = pickColors(seats);
     this.state.players.forEach((p, i) => (p.color = colors[i]!));
+    this.state.bettingStatus = 'accepted';
 
     this.game = createGame(colors);
     this.dice =
@@ -421,11 +479,30 @@ export class LudoRoom extends Room<LudoState> {
           })
         );
         await completeMatch(matchId, results);
+
+        // Handle coin transfers if betting was enabled
+        if (this.state.betAmount > 0) {
+          const winner = results.find((r) => r.rank === 1);
+          const losers = results.filter((r) => r.rank > 1);
+
+          if (winner && winner.userId !== null) {
+            const winnerId = winner.userId;
+            const winAmount = this.state.betAmount * results.length;
+            const loserCoins = losers.map((l) => ({
+              userId: l.userId,
+              lossAmount: this.state.betAmount,
+            }));
+
+            await awardCoins(matchId, winnerId, winAmount, loserCoins);
+          }
+        }
       });
     }
   }
 
   onDispose() {
+    this.deviceTokens.clear();
+    this.userIds.clear();
     if (this.matchId !== null && this.state.roomPhase !== 'ended') {
       const matchId = this.matchId;
       void safeWrite('abandon match', () => abandonMatch(matchId));

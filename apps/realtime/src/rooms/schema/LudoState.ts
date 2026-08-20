@@ -8,6 +8,8 @@ export class PlayerSchema extends Schema {
   @type('boolean') connected = true;
   @type('int8') finishedRank = 0;
   @type(['int8']) tokens = new ArraySchema<number>(-1, -1, -1, -1);
+  @type('int32') coinBalance = 100;
+  @type('boolean') acceptedBet = false;
 }
 
 export class LudoState extends Schema {
@@ -22,4 +24,6 @@ export class LudoState extends Schema {
   @type('uint8') turnSeconds = 20;
   @type('number') turnDeadline = 0;
   @type('string') diceMode: 'fair' | 'dynamic' = 'dynamic';
+  @type('int32') betAmount = 0;
+  @type('string') bettingStatus: 'not_started' | 'in_progress' | 'accepted' = 'not_started';
 }
