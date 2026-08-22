@@ -7,6 +7,7 @@ import { useSettings } from '../store/settingsStore';
 import type { DiceMode } from '@ludo/shared';
 import { ClayCharacter } from '../components/board/ClayCharacter';
 import { COLOR_HEX } from '../components/board/colors';
+import { useCoinBalance } from '../hooks/useCoinBalance';
 
 function waitForJoinCode(room: Room): Promise<string> {
   return new Promise((resolve) => {
@@ -24,6 +25,7 @@ export default function HomeScreen() {
   const [params] = useSearchParams();
   const settings = useSettings();
   const connection = useConnection();
+  const { balance, loading: balanceLoading } = useCoinBalance(settings.deviceToken);
   const [code, setCode] = useState(params.get('join') ?? '');
   const [seats, setSeats] = useState<2 | 3 | 4>(4);
   const [diceMode, setDiceMode] = useState<DiceMode>('dynamic');
@@ -88,13 +90,25 @@ export default function HomeScreen() {
       <div className="pointer-events-none absolute -left-20 -top-28 h-[380px] w-[380px] rounded-full opacity-60 blur-[60px]" style={{ background: '#ffc7d9', animation: 'drift-a 14s ease-in-out infinite' }} />
       <div className="pointer-events-none absolute -bottom-32 -right-24 h-[420px] w-[420px] rounded-full opacity-55 blur-[70px]" style={{ background: '#bfe0ff', animation: 'drift-b 17s ease-in-out infinite' }} />
 
-      <header className="relative z-10 mb-8 flex items-end gap-3">
-        <div style={{ width: 64, height: 80 }}>
-          <ClayCharacter color={COLOR_HEX.red!} mode="clay" bob />
+      <header className="relative z-10 mb-8 flex flex-col items-center">
+        <div className="flex items-end gap-3">
+          <div style={{ width: 64, height: 80 }}>
+            <ClayCharacter color={COLOR_HEX.red!} mode="clay" bob />
+          </div>
+          <h1 className="font-display text-5xl font-extrabold text-ink-light">Ludo Royale</h1>
+          <div style={{ width: 64, height: 80 }}>
+            <ClayCharacter color={COLOR_HEX.blue!} mode="clay" bob />
+          </div>
         </div>
-        <h1 className="font-display text-5xl font-extrabold text-ink-light">Ludo Royale</h1>
-        <div style={{ width: 64, height: 80 }}>
-          <ClayCharacter color={COLOR_HEX.blue!} mode="clay" bob />
+
+        {/* Coin balance display */}
+        <div className="mt-4 flex items-center gap-2 rounded-full bg-white/40 px-4 py-2 backdrop-blur-sm">
+          <span className="text-2xl">💰</span>
+          {balanceLoading ? (
+            <span className="text-sm font-bold opacity-60">Loading...</span>
+          ) : (
+            <span className="font-display text-lg font-extrabold text-ink-light">{balance}</span>
+          )}
         </div>
       </header>
 
