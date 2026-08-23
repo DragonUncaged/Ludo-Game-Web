@@ -24,6 +24,8 @@ function mirror(state: any): GameSnap {
       connected: p.connected,
       finishedRank: p.finishedRank,
       tokens: toArray(p.tokens),
+      coinBalance: p.coinBalance,
+      acceptedBet: p.acceptedBet,
     })),
     currentPlayer: state.currentPlayer,
     turnPhase: state.turnPhase,
@@ -31,6 +33,8 @@ function mirror(state: any): GameSnap {
     turnSeconds: state.turnSeconds,
     turnDeadline: state.turnDeadline,
     diceMode: state.diceMode,
+    betAmount: state.betAmount,
+    bettingStatus: state.bettingStatus,
   };
 }
 

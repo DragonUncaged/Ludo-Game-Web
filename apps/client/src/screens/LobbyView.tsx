@@ -1,25 +1,41 @@
 import { useNavigate } from 'react-router-dom';
 import { useConnection } from '../store/connectionStore';
 import { useGame } from '../store/gameStore';
+import { useSettings } from '../store/settingsStore';
 import { clearReconnectToken } from '../lib/colyseus';
 import { ClayCharacter } from '../components/board/ClayCharacter';
 import { COLOR_HEX } from '../components/board/colors';
+import { BettingSetupPanel } from '../components/betting/BettingSetupPanel';
+import { useCoinBalance } from '../hooks/useCoinBalance';
 import { TURN_ORDER } from '@ludo/engine';
 
 export default function LobbyView() {
   const navigate = useNavigate();
   const { room } = useConnection();
   const { snap, mySessionId } = useGame();
+  const settings = useSettings();
+  const { balance: myBalance } = useCoinBalance(settings.deviceToken);
+
   if (!snap || !room) return null;
 
   const isHost = snap.hostSessionId === mySessionId;
-  const seatsMax = 4; // display capacity; actual cap lives server-side (maxClients)
+  const seatsMax = 4;
   const previewColors = TURN_ORDER;
 
   const leave = () => {
     clearReconnectToken();
     room.leave(true);
     navigate('/');
+  };
+
+  const handleBetAmountChange = (amount: number) => {
+    if (isHost) {
+      room.send('setBetAmount', { amount });
+    }
+  };
+
+  const handleAcceptBet = () => {
+    room.send('acceptBet', { accepted: true });
   };
 
   return (
@@ -56,6 +72,17 @@ export default function LobbyView() {
           )}
         </div>
       </div>
+
+      {snap.bettingStatus !== 'accepted' && (
+        <BettingSetupPanel
+          snap={snap}
+          isHost={isHost}
+          mySessionId={mySessionId}
+          myBalance={myBalance}
+          onBetAmountChange={handleBetAmountChange}
+          onAcceptBet={handleAcceptBet}
+        />
+      )}
 
       {isHost ? (
         <button

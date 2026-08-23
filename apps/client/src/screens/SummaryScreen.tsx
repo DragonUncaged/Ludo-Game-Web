@@ -6,6 +6,14 @@ import { clearReconnectToken } from '../lib/colyseus';
 import { ClayCharacter } from '../components/board/ClayCharacter';
 import { COLOR_HEX } from '../components/board/colors';
 
+function calculateCoinDelta(rank: number, betAmount: number, playerCount: number): number {
+  if (betAmount === 0) return 0;
+  if (rank === 1) {
+    return betAmount * (playerCount - 1);
+  }
+  return -betAmount;
+}
+
 const MEDALS = ['🥇', '🥈', '🥉', '4th'];
 
 export default function SummaryScreen() {
@@ -77,6 +85,9 @@ export default function SummaryScreen() {
         <div className="space-y-2">
           {entries.map((e) => {
             const p = snap.players[e.seat];
+            const coinDelta = calculateCoinDelta(e.rank, snap.betAmount, snap.players.length);
+            const showCoins = snap.betAmount > 0;
+
             return (
               <div
                 key={e.seat}
@@ -89,8 +100,13 @@ export default function SummaryScreen() {
                   {e.nickname}
                   {p?.sessionId === mySessionId ? ' (you)' : ''}
                 </span>
-                <span className="ml-auto text-xs font-bold opacity-50" style={{ color: dark ? '#f3eefe' : '#4a4258' }}>
-                  🏠 {e.tokensHome} · ⚔️ {e.captures}
+                <span className="ml-auto flex items-center gap-2 text-xs font-bold opacity-50" style={{ color: dark ? '#f3eefe' : '#4a4258' }}>
+                  <span>🏠 {e.tokensHome} · ⚔️ {e.captures}</span>
+                  {showCoins && (
+                    <span style={{ color: coinDelta >= 0 ? '#22c55e' : '#ef4444' }}>
+                      {coinDelta >= 0 ? '+' : ''}{coinDelta}💰
+                    </span>
+                  )}
                 </span>
               </div>
             );

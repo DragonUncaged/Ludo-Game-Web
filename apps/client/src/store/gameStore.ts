@@ -9,6 +9,8 @@ export interface GamePlayer {
   connected: boolean;
   finishedRank: number;
   tokens: number[];
+  coinBalance: number;
+  acceptedBet: boolean;
 }
 
 export interface GameSnap {
@@ -22,6 +24,8 @@ export interface GameSnap {
   turnSeconds: number;
   turnDeadline: number;
   diceMode: 'fair' | 'dynamic';
+  betAmount: number;
+  bettingStatus: 'not_started' | 'in_progress' | 'accepted';
 }
 
 /** Animation override for one token: where to RENDER it (instead of truePos) and how. */
