@@ -8,6 +8,8 @@ import {
   upsertGuestUser,
   getCoinBalance,
   getCoinTransactionHistory,
+  getStaleGuestAccounts,
+  deleteStaleGuestAccounts,
 } from '@ludo/db';
 
 loadRootEnv();
@@ -77,6 +79,48 @@ app.get('/coins/:deviceToken/transactions', async (req, res) => {
     res.json(transactions);
   } catch (err) {
     console.error('[api] coin transactions failed', err);
+    res.status(500).json({ error: 'DB_ERROR' });
+  }
+});
+
+// Admin cleanup endpoints
+// Note: These should be protected with authentication in production
+app.get('/admin/cleanup/stale-accounts', async (req, res) => {
+  if (!dbEnabled()) {
+    return res.status(503).json({ error: 'DB_DISABLED' });
+  }
+  try {
+    const inactiveDays = Math.max(Number(req.query.inactiveDays) || 30, 1);
+    const staleAccounts = await getStaleGuestAccounts(inactiveDays, true);
+    res.json({
+      count: staleAccounts.length,
+      inactiveDays,
+      accounts: staleAccounts,
+    });
+  } catch (err) {
+    console.error('[api] stale accounts query failed', err);
+    res.status(500).json({ error: 'DB_ERROR' });
+  }
+});
+
+app.post('/admin/cleanup/stale-accounts', async (req, res) => {
+  if (!dbEnabled()) {
+    return res.status(503).json({ error: 'DB_DISABLED' });
+  }
+  const { confirmed } = req.body ?? {};
+  if (confirmed !== true) {
+    return res.status(400).json({ error: 'CLEANUP_NOT_CONFIRMED' });
+  }
+  try {
+    const inactiveDays = Math.max(Number(req.body.inactiveDays) || 30, 1);
+    const deletedCount = await deleteStaleGuestAccounts(inactiveDays, true);
+    res.json({
+      deleted: deletedCount,
+      inactiveDays,
+      message: `Deleted ${deletedCount} stale guest accounts`,
+    });
+  } catch (err) {
+    console.error('[api] stale accounts deletion failed', err);
     res.status(500).json({ error: 'DB_ERROR' });
   }
 });

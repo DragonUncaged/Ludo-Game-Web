@@ -285,3 +285,116 @@ export async function awardCoins(
     client.release();
   }
 }
+
+// Guest account cleanup queries
+
+export interface StaleAccount {
+  id: number;
+  deviceToken: string;
+  nickname: string;
+  coinBalance: number;
+  createdAt: string;
+  lastSeenAt: string;
+  matchesPlayed: number;
+}
+
+export async function getStaleGuestAccounts(
+  inactiveDays = 30,
+  includeUnplayedOnly = true
+): Promise<StaleAccount[]> {
+  const thresholdDate = new Date();
+  thresholdDate.setDate(thresholdDate.getDate() - inactiveDays);
+
+  let query = `
+    SELECT
+      u.id,
+      u.device_token AS "deviceToken",
+      u.nickname,
+      u.coin_balance AS "coinBalance",
+      u.created_at AS "createdAt",
+      u.last_seen_at AS "lastSeenAt",
+      COUNT(mp.id) AS "matchesPlayed"
+    FROM guest_users u
+    LEFT JOIN match_players mp ON mp.user_id = u.id
+    WHERE u.last_seen_at < $1
+  `;
+
+  if (includeUnplayedOnly) {
+    query += `
+      GROUP BY u.id
+      HAVING COUNT(mp.id) = 0
+    `;
+  } else {
+    query += `
+      GROUP BY u.id
+    `;
+  }
+
+  query += ` ORDER BY u.created_at ASC`;
+
+  const res = await getPool().query<{
+    id: string;
+    deviceToken: string;
+    nickname: string;
+    coinBalance: string;
+    createdAt: string;
+    lastSeenAt: string;
+    matchesPlayed: string;
+  }>(query, [thresholdDate.toISOString()]);
+
+  return res.rows.map(row => ({
+    id: Number(row.id),
+    deviceToken: row.deviceToken,
+    nickname: row.nickname,
+    coinBalance: Number(row.coinBalance),
+    createdAt: row.createdAt,
+    lastSeenAt: row.lastSeenAt,
+    matchesPlayed: Number(row.matchesPlayed),
+  }));
+}
+
+export async function deleteStaleGuestAccounts(
+  inactiveDays = 30,
+  includeUnplayedOnly = true
+): Promise<number> {
+  const thresholdDate = new Date();
+  thresholdDate.setDate(thresholdDate.getDate() - inactiveDays);
+
+  const client = await getPool().connect();
+  try {
+    await client.query('BEGIN');
+
+    let deleteQuery = `
+      DELETE FROM guest_users
+      WHERE id IN (
+        SELECT u.id
+        FROM guest_users u
+        LEFT JOIN match_players mp ON mp.user_id = u.id
+        WHERE u.last_seen_at < $1
+    `;
+
+    if (includeUnplayedOnly) {
+      deleteQuery += `
+        GROUP BY u.id
+        HAVING COUNT(mp.id) = 0
+      `;
+    } else {
+      deleteQuery += `
+        GROUP BY u.id
+      `;
+    }
+
+    deleteQuery += ` )`;
+
+    const result = await client.query(deleteQuery, [thresholdDate.toISOString()]);
+    const deletedCount = result.rowCount ?? 0;
+
+    await client.query('COMMIT');
+    return deletedCount;
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
+  }
+}
