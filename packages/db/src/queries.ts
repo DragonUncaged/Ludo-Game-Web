@@ -15,15 +15,47 @@ export async function safeWrite(label: string, fn: () => Promise<unknown>): Prom
 }
 
 export async function upsertGuestUser(deviceToken: string, nickname: string): Promise<number> {
-  const res = await getPool().query<{ id: string }>(
-    `INSERT INTO guest_users (device_token, nickname)
-     VALUES ($1, $2)
-     ON CONFLICT (device_token)
-     DO UPDATE SET nickname = EXCLUDED.nickname, last_seen_at = now()
-     RETURNING id`,
-    [deviceToken, nickname]
-  );
-  return Number(res.rows[0]!.id);
+  const client = await getPool().connect();
+  try {
+    await client.query('BEGIN');
+
+    const checkRes = await client.query<{ id: string }>(
+      `SELECT id FROM guest_users WHERE device_token = $1`,
+      [deviceToken]
+    );
+    const isNewUser = checkRes.rows.length === 0;
+
+    const res = await client.query<{ id: string }>(
+      `INSERT INTO guest_users (device_token, nickname)
+       VALUES ($1, $2)
+       ON CONFLICT (device_token)
+       DO UPDATE SET nickname = EXCLUDED.nickname, last_seen_at = now()
+       RETURNING id`,
+      [deviceToken, nickname]
+    );
+    const userId = Number(res.rows[0]!.id);
+
+    // Grant default cosmetics to new players
+    if (isNewUser) {
+      const defaultCosmetics = ['char_default', 'dice_default', 'board_default', 'emote_default'];
+      for (const cosmeticId of defaultCosmetics) {
+        await client.query(
+          `INSERT INTO player_cosmetics (user_id, cosmetic_id, is_equipped)
+           VALUES ($1, $2, true)
+           ON CONFLICT (user_id, cosmetic_id) DO NOTHING`,
+          [userId, cosmeticId]
+        );
+      }
+    }
+
+    await client.query('COMMIT');
+    return userId;
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
+  }
 }
 
 export interface MatchSeat {
@@ -391,6 +423,341 @@ export async function deleteStaleGuestAccounts(
 
     await client.query('COMMIT');
     return deletedCount;
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
+// Cosmetics system queries
+
+export interface CosmeticItem {
+  id: string;
+  category: string;
+  name: string;
+  description: string | null;
+  price: number;
+  thumbnailUrl: string | null;
+  rarity: string;
+  available: boolean;
+}
+
+export async function getShopCosmeticsFiltered(category?: string): Promise<CosmeticItem[]> {
+  let query = `SELECT id, category, name, description, price, thumbnail_url AS "thumbnailUrl", rarity, available
+               FROM cosmetics WHERE available = true`;
+  const params: unknown[] = [];
+
+  if (category) {
+    query += ` AND category = $1`;
+    params.push(category);
+  }
+
+  query += ` ORDER BY category, price ASC`;
+  const res = await getPool().query<{
+    id: string;
+    category: string;
+    name: string;
+    description: string | null;
+    price: string;
+    thumbnailUrl: string | null;
+    rarity: string;
+    available: boolean;
+  }>(query, params);
+
+  return res.rows.map(row => ({
+    id: row.id,
+    category: row.category,
+    name: row.name,
+    description: row.description,
+    price: Number(row.price),
+    thumbnailUrl: row.thumbnailUrl,
+    rarity: row.rarity,
+    available: row.available,
+  }));
+}
+
+export interface PlayerCosmeticOwned {
+  id: string;
+  category: string;
+  name: string;
+  thumbnailUrl: string | null;
+  price: number;
+  rarity: string;
+  isEquipped: boolean;
+  ownedSince: string;
+}
+
+export async function getPlayerCosmeticsOwned(deviceToken: string): Promise<PlayerCosmeticOwned[]> {
+  const res = await getPool().query<{
+    id: string;
+    category: string;
+    name: string;
+    thumbnail_url: string | null;
+    price: string;
+    rarity: string;
+    is_equipped: boolean;
+    owned_since: string;
+  }>(
+    `SELECT c.id, c.category, c.name, c.thumbnail_url, c.price, c.rarity, pc.is_equipped, pc.owned_since
+     FROM guest_users u
+     JOIN player_cosmetics pc ON pc.user_id = u.id
+     JOIN cosmetics c ON c.id = pc.cosmetic_id
+     WHERE u.device_token = $1
+     ORDER BY c.category, c.price ASC`,
+    [deviceToken]
+  );
+
+  return res.rows.map(row => ({
+    id: row.id,
+    category: row.category,
+    name: row.name,
+    thumbnailUrl: row.thumbnail_url,
+    price: Number(row.price),
+    rarity: row.rarity,
+    isEquipped: row.is_equipped,
+    ownedSince: row.owned_since,
+  }));
+}
+
+export interface PlayerEquippedCosmeticsByCategory {
+  character: CosmeticItem | null;
+  dice: CosmeticItem | null;
+  board: CosmeticItem | null;
+  emote: CosmeticItem | null;
+}
+
+export async function getPlayerCosmeticsEquipped(
+  deviceToken: string
+): Promise<PlayerEquippedCosmeticsByCategory> {
+  const res = await getPool().query<{
+    category: string;
+    id: string;
+    name: string;
+    description: string | null;
+    price: string;
+    thumbnail_url: string | null;
+    rarity: string;
+    available: boolean;
+  }>(
+    `SELECT c.id, c.category, c.name, c.description, c.price, c.thumbnail_url, c.rarity, c.available
+     FROM guest_users u
+     JOIN player_cosmetics pc ON pc.user_id = u.id
+     JOIN cosmetics c ON c.id = pc.cosmetic_id
+     WHERE u.device_token = $1 AND pc.is_equipped = true`,
+    [deviceToken]
+  );
+
+  const result: PlayerEquippedCosmeticsByCategory = {
+    character: null,
+    dice: null,
+    board: null,
+    emote: null,
+  };
+
+  for (const row of res.rows) {
+    const cosmetic: CosmeticItem = {
+      id: row.id,
+      category: row.category,
+      name: row.name,
+      description: row.description,
+      price: Number(row.price),
+      thumbnailUrl: row.thumbnail_url,
+      rarity: row.rarity,
+      available: row.available,
+    };
+    result[row.category as keyof PlayerEquippedCosmeticsByCategory] = cosmetic;
+  }
+
+  return result;
+}
+
+export async function getCosmeticById(cosmeticId: string): Promise<CosmeticItem | null> {
+  const res = await getPool().query<{
+    id: string;
+    category: string;
+    name: string;
+    description: string | null;
+    price: string;
+    thumbnail_url: string | null;
+    rarity: string;
+    available: boolean;
+  }>(`SELECT id, category, name, description, price, thumbnail_url, rarity, available FROM cosmetics WHERE id = $1`, [
+    cosmeticId,
+  ]);
+
+  const row = res.rows[0];
+  if (!row) return null;
+
+  return {
+    id: row.id,
+    category: row.category,
+    name: row.name,
+    description: row.description,
+    price: Number(row.price),
+    thumbnailUrl: row.thumbnail_url,
+    rarity: row.rarity,
+    available: row.available,
+  };
+}
+
+export async function purchaseCosmeticAtomic(
+  userId: number,
+  cosmeticId: string
+): Promise<{ success: boolean; newBalance?: number; errorCode?: string }> {
+  const client = await getPool().connect();
+  try {
+    await client.query('BEGIN');
+
+    const cosmeticRes = await client.query<{ price: string; available: boolean }>(
+      `SELECT price, available FROM cosmetics WHERE id = $1`,
+      [cosmeticId]
+    );
+    const cosmeticRow = cosmeticRes.rows[0];
+    if (!cosmeticRow || !cosmeticRow.available) {
+      await client.query('ROLLBACK');
+      return { success: false, errorCode: 'cosmetic_not_found' };
+    }
+
+    const price = Number(cosmeticRow.price);
+
+    const alreadyOwned = await client.query<{ id: string }>(
+      `SELECT id FROM player_cosmetics WHERE user_id = $1 AND cosmetic_id = $2`,
+      [userId, cosmeticId]
+    );
+    if (alreadyOwned.rows.length > 0) {
+      await client.query('ROLLBACK');
+      return { success: false, errorCode: 'already_owned' };
+    }
+
+    const balanceRes = await client.query<{ coin_balance: string }>(
+      `SELECT coin_balance FROM guest_users WHERE id = $1`,
+      [userId]
+    );
+    const balanceRow = balanceRes.rows[0];
+    if (!balanceRow) {
+      await client.query('ROLLBACK');
+      return { success: false, errorCode: 'user_not_found' };
+    }
+
+    const currentBalance = Number(balanceRow.coin_balance);
+    if (currentBalance < price) {
+      await client.query('ROLLBACK');
+      return { success: false, errorCode: 'insufficient_coins' };
+    }
+
+    const newBalance = currentBalance - price;
+    await client.query(`UPDATE guest_users SET coin_balance = $2 WHERE id = $1`, [userId, newBalance]);
+
+    await client.query(
+      `INSERT INTO player_cosmetics (user_id, cosmetic_id, is_equipped)
+       VALUES ($1, $2, false)`,
+      [userId, cosmeticId]
+    );
+
+    await client.query(
+      `INSERT INTO cosmetics_transactions (user_id, cosmetic_id, price) VALUES ($1, $2, $3)`,
+      [userId, cosmeticId, price]
+    );
+
+    await client.query('COMMIT');
+    return { success: true, newBalance };
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
+export async function equipCosmeticAtomic(userId: number, cosmeticId: string): Promise<boolean> {
+  const client = await getPool().connect();
+  try {
+    await client.query('BEGIN');
+
+    const ownedRes = await client.query<{ id: string; category: string }>(
+      `SELECT pc.id, c.category FROM player_cosmetics pc
+       JOIN cosmetics c ON c.id = pc.cosmetic_id
+       WHERE pc.user_id = $1 AND pc.cosmetic_id = $2`,
+      [userId, cosmeticId]
+    );
+    const ownedRow = ownedRes.rows[0];
+    if (!ownedRow) {
+      await client.query('ROLLBACK');
+      return false;
+    }
+
+    const category = ownedRow.category;
+    await client.query(
+      `UPDATE player_cosmetics SET is_equipped = false
+       WHERE user_id = $1 AND cosmetic_id IN (
+         SELECT pc.cosmetic_id FROM player_cosmetics pc
+         JOIN cosmetics c ON c.id = pc.cosmetic_id
+         WHERE pc.user_id = $1 AND c.category = $2
+       )`,
+      [userId, category]
+    );
+
+    await client.query(`UPDATE player_cosmetics SET is_equipped = true WHERE user_id = $1 AND cosmetic_id = $2`, [
+      userId,
+      cosmeticId,
+    ]);
+
+    await client.query('COMMIT');
+    return true;
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
+export async function getCosmeticsTransactionHistory(
+  deviceToken: string,
+  limit = 20
+): Promise<Array<{ id: string; name: string; price: number; purchasedAt: string }>> {
+  const res = await getPool().query<{
+    id: string;
+    name: string;
+    price: string;
+    purchased_at: string;
+  }>(
+    `SELECT c.id, c.name, ct.price, ct.purchased_at
+     FROM guest_users u
+     JOIN cosmetics_transactions ct ON ct.user_id = u.id
+     JOIN cosmetics c ON c.id = ct.cosmetic_id
+     WHERE u.device_token = $1
+     ORDER BY ct.purchased_at DESC
+     LIMIT $2`,
+    [deviceToken, limit]
+  );
+
+  return res.rows.map(row => ({
+    id: row.id,
+    name: row.name,
+    price: Number(row.price),
+    purchasedAt: row.purchased_at,
+  }));
+}
+
+export async function grantDefaultCosmeticsToPlayer(userId: number): Promise<void> {
+  const client = await getPool().connect();
+  try {
+    await client.query('BEGIN');
+
+    const defaultCosmetics = ['char_default', 'dice_default', 'board_default', 'emote_default'];
+    for (const cosmeticId of defaultCosmetics) {
+      await client.query(
+        `INSERT INTO player_cosmetics (user_id, cosmetic_id, is_equipped)
+         VALUES ($1, $2, true)
+         ON CONFLICT (user_id, cosmetic_id) DO NOTHING`,
+        [userId, cosmeticId]
+      );
+    }
+
+    await client.query('COMMIT');
   } catch (err) {
     await client.query('ROLLBACK');
     throw err;
