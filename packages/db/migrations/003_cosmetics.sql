@@ -23,7 +23,7 @@ CREATE INDEX idx_cosmetics_available ON cosmetics(available);
 -- Create player_cosmetics table (ownership + equipped tracking)
 CREATE TABLE IF NOT EXISTS player_cosmetics (
   id BIGSERIAL PRIMARY KEY,
-  user_id VARCHAR(36) NOT NULL,
+  user_id BIGINT NOT NULL,
   cosmetic_id TEXT NOT NULL,
   owned_since TIMESTAMP DEFAULT NOW(),
   is_equipped BOOLEAN DEFAULT FALSE,
@@ -41,7 +41,7 @@ CREATE INDEX idx_player_cosmetics_equipped ON player_cosmetics(user_id, is_equip
 -- Create cosmetics_transactions table (purchase audit log)
 CREATE TABLE IF NOT EXISTS cosmetics_transactions (
   id BIGSERIAL PRIMARY KEY,
-  user_id VARCHAR(36) NOT NULL,
+  user_id BIGINT NOT NULL,
   cosmetic_id TEXT NOT NULL,
   price INT NOT NULL,
   purchased_at TIMESTAMP DEFAULT NOW(),
