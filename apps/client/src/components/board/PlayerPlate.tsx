@@ -79,9 +79,14 @@ export const PlayerPlate = memo(function PlayerPlate({
         />
       </div>
       <div className="min-w-0">
-        <div className="truncate text-sm font-extrabold" style={{ color: dark ? '#f3eefe' : '#4a4258' }}>
-          {player.nickname}
-          {isMe ? ' (you)' : ''}
+        <div className="flex items-center gap-1.5 text-sm font-extrabold" style={{ color: dark ? '#f3eefe' : '#4a4258' }}>
+          <span className="truncate">
+            {player.nickname}
+            {isMe ? ' (you)' : ''}
+          </span>
+          {player.equippedCosmeticId && (
+            <span className="shrink-0 text-lg">✨</span>
+          )}
         </div>
         <div className="text-[11px] font-bold opacity-60" style={{ color: dark ? '#f3eefe' : '#4a4258' }}>
           {player.finishedRank > 0

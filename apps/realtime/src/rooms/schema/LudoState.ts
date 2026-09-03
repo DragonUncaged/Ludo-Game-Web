@@ -10,6 +10,8 @@ export class PlayerSchema extends Schema {
   @type(['int8']) tokens = new ArraySchema<number>(-1, -1, -1, -1);
   @type('int32') coinBalance = 100;
   @type('boolean') acceptedBet = false;
+  @type('int32') equippedCosmeticId: number | null = null;
+  @type('string') equippedCosmeticCategory = '';
 }
 
 export class LudoState extends Schema {

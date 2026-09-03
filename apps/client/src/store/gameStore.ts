@@ -11,6 +11,8 @@ export interface GamePlayer {
   tokens: number[];
   coinBalance: number;
   acceptedBet: boolean;
+  equippedCosmeticId: number | null;
+  equippedCosmeticCategory: string;
 }
 
 export interface GameSnap {
