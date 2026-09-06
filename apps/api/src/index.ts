@@ -18,6 +18,7 @@ import {
   equipCosmeticAtomic,
   getCosmeticsTransactionHistory,
   grantDefaultCosmeticsToPlayer,
+  getLeaderboard,
 } from '@ludo/db';
 
 loadRootEnv();
@@ -62,6 +63,17 @@ app.get('/history/:deviceToken', async (req, res) => {
     res.json(await getHistoryByDeviceToken(req.params.deviceToken));
   } catch (err) {
     console.error('[api] history failed', err);
+    res.status(500).json({ error: 'DB_ERROR' });
+  }
+});
+
+app.get('/leaderboard', async (req, res) => {
+  const limit = Math.min(Number(req.query.limit) || 50, 500);
+  try {
+    const entries = await getLeaderboard(limit);
+    res.json(entries);
+  } catch (err) {
+    console.error('[api] leaderboard failed', err);
     res.status(500).json({ error: 'DB_ERROR' });
   }
 });

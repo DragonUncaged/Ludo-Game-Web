@@ -102,7 +102,7 @@ export default function HomeScreen() {
         </div>
 
         {/* Coin balance display */}
-        <div className="mt-4 flex items-center justify-center gap-6">
+        <div className="mt-4 flex items-center justify-center gap-3">
           <div className="flex items-center gap-2 rounded-full bg-white/40 px-4 py-2 backdrop-blur-sm">
             <span className="text-2xl">💰</span>
             {balanceLoading ? (
@@ -116,6 +116,12 @@ export default function HomeScreen() {
             className="clay cursor-pointer rounded-full bg-white/40 px-4 py-2 font-body text-lg font-bold text-ink-light backdrop-blur-sm active:clay-pressed"
           >
             🛍️ Shop
+          </button>
+          <button
+            onClick={() => navigate('/leaderboard')}
+            className="clay cursor-pointer rounded-full bg-white/40 px-4 py-2 font-body text-lg font-bold text-ink-light backdrop-blur-sm active:clay-pressed"
+          >
+            🏆 Board
           </button>
         </div>
       </header>

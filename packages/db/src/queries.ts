@@ -765,3 +765,48 @@ export async function grantDefaultCosmeticsToPlayer(userId: number): Promise<voi
     client.release();
   }
 }
+
+export interface LeaderboardEntry {
+  id: number;
+  nickname: string;
+  wins: number;
+  gamesPlayed: number;
+  coinBalance: number;
+  capturesMade: number;
+  hasEquippedCosmetic: boolean;
+}
+
+export async function getLeaderboard(limit = 50): Promise<LeaderboardEntry[]> {
+  const res = await getPool().query<{
+    id: string;
+    nickname: string;
+    wins: string;
+    games_played: string;
+    coin_balance: string;
+    captures_made: string;
+    has_equipped: boolean;
+  }>(
+    `SELECT u.id, u.nickname,
+            COALESCE(s.wins, 0) AS wins,
+            COALESCE(s.games_played, 0) AS games_played,
+            COALESCE(u.coin_balance, 0) AS coin_balance,
+            COALESCE(s.captures_made, 0) AS captures_made,
+            EXISTS(SELECT 1 FROM player_cosmetics WHERE user_id = u.id AND is_equipped = true) AS has_equipped
+     FROM guest_users u
+     LEFT JOIN user_stats s ON s.user_id = u.id
+     WHERE s.wins > 0 OR s.games_played > 0
+     ORDER BY COALESCE(s.wins, 0) DESC, COALESCE(s.games_played, 0) DESC
+     LIMIT $1`,
+    [limit]
+  );
+
+  return res.rows.map(row => ({
+    id: Number(row.id),
+    nickname: row.nickname,
+    wins: Number(row.wins),
+    gamesPlayed: Number(row.games_played),
+    coinBalance: Number(row.coin_balance),
+    capturesMade: Number(row.captures_made),
+    hasEquippedCosmetic: row.has_equipped,
+  }));
+}
