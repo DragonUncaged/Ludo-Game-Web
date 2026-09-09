@@ -5,14 +5,8 @@ import { useSettings } from '../store/settingsStore';
 import { clearReconnectToken } from '../lib/colyseus';
 import { ClayCharacter } from '../components/board/ClayCharacter';
 import { COLOR_HEX } from '../components/board/colors';
-
-function calculateCoinDelta(rank: number, betAmount: number, playerCount: number): number {
-  if (betAmount === 0) return 0;
-  if (rank === 1) {
-    return betAmount * (playerCount - 1);
-  }
-  return -betAmount;
-}
+import { coinDeltaForSeat } from '@ludo/shared';
+import type { BettingSeat } from '@ludo/shared';
 
 const MEDALS = ['🥇', '🥈', '🥉', '4th'];
 
@@ -35,6 +29,15 @@ export default function SummaryScreen() {
         tokensHome: p.tokens.filter((t) => t === 56).length,
       }))
       .sort((a, b) => a.rank - b.rank);
+
+  // The client never sees account ids; every human seat is a bettor server-side,
+  // so stand in with 0 to get the same payout split the server settles with.
+  const bettingSeats: BettingSeat[] = entries.map((e) => ({
+    seat: e.seat,
+    isBot: snap.players[e.seat]?.isBot ?? false,
+    userId: snap.players[e.seat]?.isBot ? null : 0,
+    rank: e.rank,
+  }));
 
   const winner = entries[0];
   const winnerColor = snap.players[winner?.seat ?? 0]?.color ?? 'red';
@@ -85,8 +88,8 @@ export default function SummaryScreen() {
         <div className="space-y-2">
           {entries.map((e) => {
             const p = snap.players[e.seat];
-            const coinDelta = calculateCoinDelta(e.rank, snap.betAmount, snap.players.length);
-            const showCoins = snap.betAmount > 0;
+            const coinDelta = coinDeltaForSeat(snap.betAmount, bettingSeats, e.seat);
+            const showCoins = snap.betAmount > 0 && coinDelta !== 0;
 
             return (
               <div

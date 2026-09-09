@@ -13,7 +13,7 @@ import {
 } from '@ludo/engine';
 import type { DiceRoller, GameState, Move, PlayerColor } from '@ludo/engine';
 import { serializeGame } from '@ludo/engine';
-import { generateJoinCode } from '@ludo/shared';
+import { computeSettlement, generateJoinCode } from '@ludo/shared';
 import type { JoinOptions, MoveIntent, SetOptionsIntent, TimeIntent } from '@ludo/shared';
 import {
   abandonMatch,
@@ -490,21 +490,19 @@ export class LudoRoom extends Room<LudoState> {
         );
         await completeMatch(matchId, results);
 
-        // Handle coin transfers if betting was enabled
-        if (this.state.betAmount > 0) {
-          const winner = results.find((r) => r.rank === 1);
-          const losers = results.filter((r) => r.rank > 1);
-
-          if (winner && winner.userId !== null) {
-            const winnerId = winner.userId;
-            const winAmount = this.state.betAmount * results.length;
-            const loserCoins = losers.map((l) => ({
-              userId: l.userId,
-              lossAmount: this.state.betAmount,
-            }));
-
-            await awardCoins(matchId, winnerId, winAmount, loserCoins);
-          }
+        // Settle the pot. Bots hold no coins, so a bot finishing first does not
+        // void the wager — the best-ranked human bettor takes it.
+        const settlement = computeSettlement(
+          this.state.betAmount,
+          results.map((r) => ({
+            seat: r.seat,
+            isBot: this.state.players[r.seat]!.isBot,
+            userId: r.userId,
+            rank: r.rank,
+          }))
+        );
+        if (settlement.winnerId !== null) {
+          await awardCoins(matchId, settlement.winnerId, settlement.stake, settlement.loserIds);
         }
       });
     }

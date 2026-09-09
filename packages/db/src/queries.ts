@@ -255,61 +255,84 @@ export async function updateCoinBalance(userId: number, newBalance: number): Pro
   );
 }
 
+export interface SettlementResult {
+  /** Coins actually taken from the losers (may be short if someone spent mid-match). */
+  collected: number;
+  /** Coins credited to the winner — always equal to `collected`. */
+  awarded: number;
+  /** Full pot including the winner's own returned stake. */
+  totalPool: number;
+}
+
+/**
+ * Settle a wagered match in one transaction: collect each loser's stake, then
+ * hand the winner exactly what was collected.
+ *
+ * Losers are debited under a row lock and clamped to their balance, so a player
+ * whose balance dropped since the lobby cannot mint coins for the winner — the
+ * winner's credit is derived from what was actually collected, never from the
+ * nominal stake. That keeps the economy conserved.
+ */
 export async function awardCoins(
   matchId: number,
   winnerId: number | null,
-  winAmount: number,
-  loserIds: Array<{ userId: number | null; lossAmount: number }>
-): Promise<void> {
+  stake: number,
+  loserIds: number[]
+): Promise<SettlementResult> {
+  const empty: SettlementResult = { collected: 0, awarded: 0, totalPool: 0 };
+  if (winnerId === null || stake <= 0 || loserIds.length === 0) return empty;
+
   const client = await getPool().connect();
   try {
     await client.query('BEGIN');
 
-    // Award coins to winner
-    if (winnerId !== null && winAmount > 0) {
+    let collected = 0;
+    for (const userId of loserIds) {
       const balRes = await client.query<{ coin_balance: string }>(
-        `SELECT coin_balance FROM guest_users WHERE id = $1`,
+        `SELECT coin_balance FROM guest_users WHERE id = $1 FOR UPDATE`,
+        [userId]
+      );
+      const row = balRes.rows[0];
+      if (!row) continue;
+      const loss = Math.min(stake, Number(row.coin_balance));
+      if (loss <= 0) continue;
+      const newBalance = Number(row.coin_balance) - loss;
+      collected += loss;
+      await client.query(`UPDATE guest_users SET coin_balance = $2 WHERE id = $1`, [userId, newBalance]);
+      await client.query(
+        `INSERT INTO coin_transactions (user_id, match_id, transaction_type, amount, balance_after, description)
+         VALUES ($1, $2, 'bet_lost', $3, $4, 'Match loss')`,
+        [userId, matchId, -loss, newBalance]
+      );
+    }
+
+    if (collected > 0) {
+      const balRes = await client.query<{ coin_balance: string }>(
+        `SELECT coin_balance FROM guest_users WHERE id = $1 FOR UPDATE`,
         [winnerId]
       );
       const row = balRes.rows[0];
       if (row) {
-        const newBalance = Number(row.coin_balance) + winAmount;
+        const newBalance = Number(row.coin_balance) + collected;
         await client.query(`UPDATE guest_users SET coin_balance = $2 WHERE id = $1`, [winnerId, newBalance]);
         await client.query(
           `INSERT INTO coin_transactions (user_id, match_id, transaction_type, amount, balance_after, description)
            VALUES ($1, $2, 'bet_won', $3, $4, 'Match win')`,
-          [winnerId, matchId, winAmount, newBalance]
+          [winnerId, matchId, collected, newBalance]
         );
       }
     }
 
-    // Deduct coins from losers
-    for (const { userId, lossAmount } of loserIds) {
-      if (userId !== null && lossAmount > 0) {
-        const balRes = await client.query<{ coin_balance: string }>(
-          `SELECT coin_balance FROM guest_users WHERE id = $1`,
-          [userId]
-        );
-        const row = balRes.rows[0];
-        if (row) {
-          const newBalance = Math.max(0, Number(row.coin_balance) - lossAmount);
-          await client.query(`UPDATE guest_users SET coin_balance = $2 WHERE id = $1`, [userId, newBalance]);
-          await client.query(
-            `INSERT INTO coin_transactions (user_id, match_id, transaction_type, amount, balance_after, description)
-             VALUES ($1, $2, 'bet_lost', $3, $4, 'Match loss')`,
-            [userId, matchId, -lossAmount, newBalance]
-          );
-        }
-      }
-    }
-
-    // Update match with bet tracking
-    await client.query(
-      `UPDATE matches SET total_pool = $2 WHERE id = $1`,
-      [matchId, loserIds.reduce((sum, l) => sum + l.lossAmount, 0) + winAmount]
-    );
+    // Pot = collected stakes + the winner's own stake, which never left their balance.
+    const totalPool = collected + stake;
+    await client.query(`UPDATE matches SET bet_amount = $2, total_pool = $3 WHERE id = $1`, [
+      matchId,
+      stake,
+      totalPool,
+    ]);
 
     await client.query('COMMIT');
+    return { collected, awarded: collected, totalPool };
   } catch (err) {
     await client.query('ROLLBACK');
     throw err;

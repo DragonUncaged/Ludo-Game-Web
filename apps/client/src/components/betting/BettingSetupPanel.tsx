@@ -21,8 +21,12 @@ export function BettingSetupPanel({
   const myPlayer = players.find((p) => p.sessionId === mySessionId);
   const myAccepted = myPlayer?.acceptedBet ?? false;
   const canAcceptBet = myBalance >= betAmount;
-  const acceptedCount = players.filter((p) => p.acceptedBet).length;
-  const totalPool = betAmount * players.length;
+  // Bots hold no coins — only humans stake, so only humans size the pot.
+  const bettors = players.filter((p) => !p.isBot);
+  const acceptedCount = bettors.filter((p) => p.acceptedBet).length;
+  const totalPool = betAmount * bettors.length;
+  const winnerNet = betAmount * Math.max(0, bettors.length - 1);
+  const wagerVoid = betAmount > 0 && bettors.length < 2;
 
   if (isHost) {
     return (
@@ -67,8 +71,14 @@ export function BettingSetupPanel({
 
         {/* Pool info */}
         <div className="mb-4 rounded-lg bg-seg-light px-3 py-2 text-sm font-bold opacity-70">
-          Pool: {totalPool} 💰 ({acceptedCount}/{players.length} players ready)
+          Pool: {totalPool} 💰 ({acceptedCount}/{bettors.length} players ready)
         </div>
+
+        {wagerVoid && (
+          <div className="mb-4 rounded-lg border-2 border-amber-500 bg-amber-500/10 px-3 py-2 text-xs font-bold">
+            ⚠️ Bots don't stake coins — this wager pays nothing until a second human joins.
+          </div>
+        )}
 
         {/* Player acceptance status */}
         <div className="space-y-1 rounded-lg bg-seg-light px-3 py-2">
@@ -97,10 +107,16 @@ export function BettingSetupPanel({
         <div className="text-xs font-bold opacity-50">Current wager:</div>
         <div className="text-2xl font-extrabold text-ink-light">{betAmount} 💰</div>
 
-        {betAmount > 0 && (
+        {betAmount > 0 && !wagerVoid && (
           <div className="mt-2 space-y-1 text-xs font-bold opacity-60">
-            <div>🥇 Finish 1st: +{betAmount * (players.length - 1)} 💰</div>
-            <div>🏁 Finish last: −{betAmount} 💰</div>
+            <div>🥇 Finish 1st: +{winnerNet} 💰</div>
+            <div>🏁 Anyone else: −{betAmount} 💰</div>
+          </div>
+        )}
+
+        {wagerVoid && (
+          <div className="mt-2 text-xs font-bold text-amber-600">
+            ⚠️ Bots don't stake coins — this wager pays nothing until a second human joins.
           </div>
         )}
 
