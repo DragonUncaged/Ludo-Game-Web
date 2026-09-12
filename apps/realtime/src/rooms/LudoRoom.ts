@@ -59,6 +59,7 @@ export class LudoRoom extends Room<LudoState> {
   private capturesBySeat: number[] = [];
   private turnNonce = 0;
   private deviceTokens = new Map<string, string>(); // sessionId → deviceToken
+  private nicknames = new Map<string, string>(); // sessionId → nickname as given at join
   private userIds = new Map<string, number>(); // sessionId → userId (database ID)
   private matchId: number | null = null;
   /** monotonic broadcast counter — lets clients drop duplicate/stale event deliveries */
@@ -175,6 +176,7 @@ export class LudoRoom extends Room<LudoState> {
     const player = new PlayerSchema();
     player.sessionId = client.sessionId;
     player.nickname = (options?.nickname || 'Player').slice(0, 20);
+    this.nicknames.set(client.sessionId, player.nickname);
     player.coinBalance = coinBalance;
     player.equippedCosmeticId = equippedCosmeticId;
     player.equippedCosmeticCategory = equippedCosmeticCategory;
@@ -190,6 +192,7 @@ export class LudoRoom extends Room<LudoState> {
     if (this.state.roomPhase === 'waiting') {
       this.state.players.splice(seat, 1);
       this.deviceTokens.delete(client.sessionId);
+      this.nicknames.delete(client.sessionId);
       this.userIds.delete(client.sessionId);
       if (this.state.hostSessionId === client.sessionId && this.state.players.length > 0) {
         this.state.hostSessionId = this.state.players[0]!.sessionId;
@@ -208,6 +211,10 @@ export class LudoRoom extends Room<LudoState> {
         /* timed out — fall through to botify */
       }
     }
+    // Walking out of a wagered match forfeits the stake. Without this the
+    // quitter would simply stop counting as a bettor at settlement time, which
+    // is a free escape hatch for whoever is losing.
+    if (player.staked) player.forfeitedBet = true;
     player.isBot = true;
     player.nickname = `${player.nickname} 🤖`;
     if (
@@ -223,6 +230,14 @@ export class LudoRoom extends Room<LudoState> {
 
   private seatOf(sessionId: string): number {
     return this.state.players.findIndex((p) => p.sessionId === sessionId);
+  }
+
+  /**
+   * Nickname as the player typed it. `onLeave` appends a 🤖 marker for the
+   * scoreboard, and that decoration must not leak into their stored profile.
+   */
+  private storedNickname(p: PlayerSchema): string {
+    return (this.nicknames.get(p.sessionId) ?? p.nickname).slice(0, 20);
   }
 
   private isCurrentHuman(seat: number): boolean {
@@ -272,6 +287,12 @@ export class LudoRoom extends Room<LudoState> {
       }
     }
 
+    // Freeze the bettor list now: everyone here at the whistle has coins on the
+    // line for the rest of the match, whatever happens to their seat later.
+    if (this.state.betAmount > 0) {
+      this.state.players.forEach((p) => (p.staked = !p.isBot));
+    }
+
     const seats = this.maxClients;
     while (this.state.players.length < seats) {
       const bot = new PlayerSchema();
@@ -299,8 +320,7 @@ export class LudoRoom extends Room<LudoState> {
       const seatRows = await Promise.all(
         this.state.players.map(async (p, seat) => {
           const token = this.deviceTokens.get(p.sessionId);
-          const userId =
-            !p.isBot && token ? await upsertGuestUser(token, p.nickname.slice(0, 20)) : null;
+          const userId = !p.isBot && token ? await upsertGuestUser(token, this.storedNickname(p)) : null;
           return { seat, userId, nickname: p.nickname, color: p.color, isBot: p.isBot };
         })
       );
@@ -477,8 +497,9 @@ export class LudoRoom extends Room<LudoState> {
         const results = await Promise.all(
           this.state.players.map(async (p, seat) => {
             const token = this.deviceTokens.get(p.sessionId);
-            const userId =
-              !p.isBot && token ? await upsertGuestUser(token, p.nickname.slice(0, 20)) : null;
+            // A player who walked out is flagged isBot for the UI but is still a
+            // real account that owes the pot — key off the device token instead.
+            const userId = token ? await upsertGuestUser(token, this.storedNickname(p)) : null;
             return {
               seat,
               userId,
@@ -490,15 +511,16 @@ export class LudoRoom extends Room<LudoState> {
         );
         await completeMatch(matchId, results);
 
-        // Settle the pot. Bots hold no coins, so a bot finishing first does not
-        // void the wager — the best-ranked human bettor takes it.
+        // Settle the pot against the bettor list frozen at kickoff — `isBot` is
+        // true for anyone who quit mid-match, and they must still pay in.
         const settlement = computeSettlement(
           this.state.betAmount,
           results.map((r) => ({
             seat: r.seat,
-            isBot: this.state.players[r.seat]!.isBot,
+            isBot: !this.state.players[r.seat]!.staked,
             userId: r.userId,
             rank: r.rank,
+            forfeited: this.state.players[r.seat]!.forfeitedBet,
           }))
         );
         if (settlement.winnerId !== null) {
@@ -510,6 +532,7 @@ export class LudoRoom extends Room<LudoState> {
 
   onDispose() {
     this.deviceTokens.clear();
+    this.nicknames.clear();
     this.userIds.clear();
     if (this.matchId !== null && this.state.roomPhase !== 'ended') {
       const matchId = this.matchId;

@@ -10,6 +10,10 @@ export class PlayerSchema extends Schema {
   @type(['int8']) tokens = new ArraySchema<number>(-1, -1, -1, -1);
   @type('int32') coinBalance = 100;
   @type('boolean') acceptedBet = false;
+  /** Put coins in when the match started. Bots (and seats added later) never do. */
+  @type('boolean') staked = false;
+  /** Staked, then left mid-match — pays into the pot but cannot win it. */
+  @type('boolean') forfeitedBet = false;
   @type('int32') equippedCosmeticId: number | null = null;
   @type('string') equippedCosmeticCategory = '';
 }

@@ -11,17 +11,21 @@
 //  - The best-ranked bettor takes the pot. Their own stake comes back with it,
 //    so their *net* gain is `betAmount × (bettors − 1)` — exactly the sum the
 //    losers give up. Coins are conserved.
+//  - Abandoning a wagered match forfeits the stake: the seat still pays in but
+//    can never collect, however well the bot that took over plays it.
 //  - Fewer than two bettors means there is nothing to play for; nobody pays.
 
 /** A seat as it exists at settlement time. */
 export interface BettingSeat {
   seat: number;
-  /** Bots never stake. */
+  /** True for a seat that never staked — a bot that was in the room from the start. */
   isBot: boolean;
   /** Account id; null for a human we could not persist (bet is voided for them). */
   userId: number | null;
   /** 1-based finishing rank; the engine ranks every seat. */
   rank: number;
+  /** Staked, then walked out mid-match: pays into the pot but cannot win it. */
+  forfeited?: boolean;
 }
 
 export interface CoinSettlement {
@@ -63,8 +67,13 @@ export function computeSettlement(betAmount: number, seats: BettingSeat[]): Coin
   const bettors = seats.filter(isBettor);
   if (bettors.length < 2) return EMPTY;
 
+  // Quitters still pay in, but the pot can only go to someone who saw it out.
+  // If nobody did, there is no one to pay it to and the whole wager is void.
+  const eligible = bettors.filter((s) => !s.forfeited);
+  if (eligible.length === 0) return EMPTY;
+
   // Ties cannot happen (ranks are unique) but sort by seat as a stable tiebreak.
-  const winner = bettors.reduce((best, s) =>
+  const winner = eligible.reduce((best, s) =>
     s.rank < best.rank || (s.rank === best.rank && s.seat < best.seat) ? s : best
   );
   const losers = bettors.filter((s) => s.seat !== winner.seat);

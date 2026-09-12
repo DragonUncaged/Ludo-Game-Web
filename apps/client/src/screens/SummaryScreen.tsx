@@ -30,14 +30,20 @@ export default function SummaryScreen() {
       }))
       .sort((a, b) => a.rank - b.rank);
 
-  // The client never sees account ids; every human seat is a bettor server-side,
-  // so stand in with 0 to get the same payout split the server settles with.
-  const bettingSeats: BettingSeat[] = entries.map((e) => ({
-    seat: e.seat,
-    isBot: snap.players[e.seat]?.isBot ?? false,
-    userId: snap.players[e.seat]?.isBot ? null : 0,
-    rank: e.rank,
-  }));
+  // The client never sees account ids, so stand in with 0 to get the same
+  // payout split the server settles with. `staked` (not `isBot`) is the bettor
+  // list — a player who quit mid-match is flagged as a bot but still pays in.
+  const bettingSeats: BettingSeat[] = entries.map((e) => {
+    const p = snap.players[e.seat];
+    const staked = p?.staked ?? false;
+    return {
+      seat: e.seat,
+      isBot: !staked,
+      userId: staked ? 0 : null,
+      rank: e.rank,
+      forfeited: p?.forfeitedBet ?? false,
+    };
+  });
 
   const winner = entries[0];
   const winnerColor = snap.players[winner?.seat ?? 0]?.color ?? 'red';
@@ -105,6 +111,7 @@ export default function SummaryScreen() {
                 </span>
                 <span className="ml-auto flex items-center gap-2 text-xs font-bold opacity-50" style={{ color: dark ? '#f3eefe' : '#4a4258' }}>
                   <span>🏠 {e.tokensHome} · ⚔️ {e.captures}</span>
+                  {snap.betAmount > 0 && p?.forfeitedBet && <span title="Left mid-match">🏳️</span>}
                   {showCoins && (
                     <span style={{ color: coinDelta >= 0 ? '#22c55e' : '#ef4444' }}>
                       {coinDelta >= 0 ? '+' : ''}{coinDelta}💰

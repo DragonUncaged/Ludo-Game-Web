@@ -83,6 +83,42 @@ describe('computeSettlement', () => {
     expect(s.winnerId).toBe(103);
   });
 
+  it('makes a quitter forfeit their stake even if the bot playing their seat wins', () => {
+    // Seat 0 walked out, then the takeover bot finished first anyway.
+    const s = computeSettlement(50, seats([{ forfeited: true, rank: 1 }, { rank: 2 }, { rank: 3 }, { rank: 4 }]));
+    expect(s.bettorCount).toBe(4);
+    expect(s.pot).toBe(200);
+    expect(s.winnerSeat).toBe(1);
+    expect(s.winnerNet).toBe(150);
+    expect(s.loserIds).toEqual([100, 102, 103]); // the quitter pays in
+  });
+
+  it('still charges a quitter who was going to lose anyway', () => {
+    // The escape hatch this guards: leaving used to drop the seat from the pot.
+    const table = seats([{ rank: 1 }, { forfeited: true, rank: 4 }, { rank: 2 }, { rank: 3 }]);
+    const s = computeSettlement(20, table);
+    expect(s.winnerSeat).toBe(0);
+    expect(s.winnerNet).toBe(60);
+    expect(s.loserIds).toContain(101);
+    expect(table.reduce((sum, x) => sum + coinDeltaForSeat(20, table, x.seat), 0)).toBe(0);
+  });
+
+  it('voids the wager when every bettor walked out', () => {
+    const s = computeSettlement(50, seats([{ forfeited: true }, { forfeited: true }, { isBot: true, userId: null }]));
+    expect(s).toMatchObject({ pot: 0, winnerId: null, loserIds: [] });
+  });
+
+  it('leaves a two-player wager intact when one side quits', () => {
+    const s = computeSettlement(
+      75,
+      seats([{ forfeited: true, rank: 2 }, { rank: 1 }, { isBot: true, userId: null, rank: 3 }, { isBot: true, userId: null, rank: 4 }])
+    );
+    expect(s.bettorCount).toBe(2);
+    expect(s.winnerId).toBe(101);
+    expect(s.winnerNet).toBe(75);
+    expect(s.loserIds).toEqual([100]);
+  });
+
   it('floors fractional stakes and rejects negatives', () => {
     expect(computeSettlement(10.9, four()).stake).toBe(10);
     expect(computeSettlement(-5, four()).stake).toBe(0);

@@ -26,6 +26,8 @@ function mirror(state: any): GameSnap {
       tokens: toArray(p.tokens),
       coinBalance: p.coinBalance,
       acceptedBet: p.acceptedBet,
+      staked: p.staked,
+      forfeitedBet: p.forfeitedBet,
       equippedCosmeticId: p.equippedCosmeticId,
       equippedCosmeticCategory: p.equippedCosmeticCategory,
     })),
