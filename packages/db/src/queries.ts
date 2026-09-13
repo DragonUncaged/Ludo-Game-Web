@@ -341,6 +341,102 @@ export async function awardCoins(
   }
 }
 
+// Daily bonus — the coin faucet. See packages/shared/src/rewards.ts for the
+// amount/cooldown rules; this layer only stores and guards the claim.
+
+export interface DailyBonusState {
+  userId: number;
+  balance: number;
+  /** Epoch ms of the last claim, or null if never claimed. */
+  lastBonusAt: number | null;
+  /** Database clock, epoch ms — the cooldown is judged against this, not the API host's. */
+  now: number;
+}
+
+export async function getDailyBonusState(deviceToken: string): Promise<DailyBonusState | null> {
+  const res = await getPool().query<{
+    id: string;
+    coin_balance: string;
+    last_bonus_at: Date | null;
+    db_now: Date;
+  }>(
+    `SELECT id, coin_balance, last_bonus_at, now() AS db_now
+       FROM guest_users WHERE device_token = $1`,
+    [deviceToken]
+  );
+  const row = res.rows[0];
+  if (!row) return null;
+  return {
+    userId: Number(row.id),
+    balance: Number(row.coin_balance),
+    lastBonusAt: row.last_bonus_at ? row.last_bonus_at.getTime() : null,
+    now: row.db_now.getTime(),
+  };
+}
+
+export interface DailyBonusClaim {
+  /** False when the cooldown was still running at write time (double-click, two tabs). */
+  claimed: boolean;
+  amount: number;
+  balance: number;
+  lastBonusAt: number | null;
+}
+
+/**
+ * Credit a daily bonus, once per cooldown window.
+ *
+ * The cooldown is re-checked in the UPDATE's WHERE clause against the database
+ * clock, so two concurrent claims cannot both land: the second matches no row.
+ * `amount` is decided by the caller (shared `dailyBonusAmount`) so the payout
+ * formula never gets a second implementation in SQL.
+ */
+export async function claimDailyBonus(
+  deviceToken: string,
+  amount: number,
+  cooldownMs: number
+): Promise<DailyBonusClaim | null> {
+  const credit = Math.max(0, Math.floor(amount));
+  const client = await getPool().connect();
+  try {
+    await client.query('BEGIN');
+    const res = await client.query<{ id: string; coin_balance: string; last_bonus_at: Date }>(
+      `UPDATE guest_users
+          SET coin_balance = coin_balance + $2, last_bonus_at = now()
+        WHERE device_token = $1
+          AND (last_bonus_at IS NULL OR last_bonus_at <= now() - make_interval(secs => $3))
+        RETURNING id, coin_balance, last_bonus_at`,
+      [deviceToken, credit, cooldownMs / 1000]
+    );
+
+    const row = res.rows[0];
+    if (!row) {
+      await client.query('ROLLBACK');
+      const current = await getDailyBonusState(deviceToken);
+      if (!current) return null;
+      return {
+        claimed: false,
+        amount: 0,
+        balance: current.balance,
+        lastBonusAt: current.lastBonusAt,
+      };
+    }
+
+    const balance = Number(row.coin_balance);
+    await client.query(
+      `INSERT INTO coin_transactions (user_id, match_id, transaction_type, amount, balance_after, description)
+       VALUES ($1, NULL, 'daily_bonus', $2, $3, 'Daily bonus')`,
+      [Number(row.id), credit, balance]
+    );
+    await client.query('COMMIT');
+    return { claimed: true, amount: credit, balance, lastBonusAt: row.last_bonus_at.getTime() };
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
 // Guest account cleanup queries
 
 export interface StaleAccount {

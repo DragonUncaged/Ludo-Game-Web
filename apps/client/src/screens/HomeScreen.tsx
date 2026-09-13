@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import type { Room } from 'colyseus.js';
 import { createRoom, joinRoomByCode, mapJoinError } from '../lib/colyseus';
@@ -8,6 +8,10 @@ import type { DiceMode } from '@ludo/shared';
 import { ClayCharacter } from '../components/board/ClayCharacter';
 import { COLOR_HEX } from '../components/board/colors';
 import { useCoinBalance } from '../hooks/useCoinBalance';
+import { useDailyBonus } from '../hooks/useDailyBonus';
+import { formatCooldown } from '@ludo/shared';
+
+const API_URL: string = import.meta.env.VITE_API_URL ?? 'http://localhost:8080';
 
 function waitForJoinCode(room: Room): Promise<string> {
   return new Promise((resolve) => {
@@ -25,13 +29,39 @@ export default function HomeScreen() {
   const [params] = useSearchParams();
   const settings = useSettings();
   const connection = useConnection();
-  const { balance, loading: balanceLoading } = useCoinBalance(settings.deviceToken);
+  const { balance, loading: balanceLoading, refetch: refetchBalance } = useCoinBalance(settings.deviceToken);
+  const bonus = useDailyBonus(settings.deviceToken, refetchBalance);
   const [code, setCode] = useState(params.get('join') ?? '');
   const [seats, setSeats] = useState<2 | 3 | 4>(4);
   const [diceMode, setDiceMode] = useState<DiceMode>('dynamic');
   const [turnSeconds, setTurnSeconds] = useState(20);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Open the wallet as soon as there is a name to open it under. The guest row
+  // (and the 100 coins it is created with) used to appear only when a match
+  // started, so a new player saw an empty balance and no bonus until then.
+  const registeredNick = useRef<string | null>(null);
+  useEffect(() => {
+    const nickname = settings.nickname.trim();
+    if (!settings.deviceToken || !nickname || registeredNick.current === nickname) return;
+    const id = setTimeout(async () => {
+      registeredNick.current = nickname;
+      try {
+        const res = await fetch(`${API_URL}/guests`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ deviceToken: settings.deviceToken, nickname }),
+        });
+        if (!res.ok) return;
+        await refetchBalance();
+        await bonus.refresh();
+      } catch {
+        /* the home screen works fine without a wallet */
+      }
+    }, 800);
+    return () => clearTimeout(id);
+  }, [settings.deviceToken, settings.nickname]);
 
   const identity = () => ({
     nickname: settings.nickname.trim() || 'Player',
@@ -111,6 +141,23 @@ export default function HomeScreen() {
               <span className="font-display text-lg font-extrabold text-ink-light">{balance}</span>
             )}
           </div>
+          {bonus.available && (bonus.claimable ? (
+            <button
+              onClick={() => void bonus.claim()}
+              disabled={bonus.claiming}
+              title={`Claim ${bonus.amount} coins`}
+              className="clay cursor-pointer rounded-full border-0 bg-clay-yellow px-4 py-2 font-body text-lg font-extrabold text-[#7a5b18] active:clay-pressed disabled:opacity-50"
+            >
+              {bonus.claiming ? '🎁 …' : `🎁 +${bonus.amount}`}
+            </button>
+          ) : (
+            <div
+              title="Your next daily bonus"
+              className="clay-pressed rounded-full bg-white/40 px-4 py-2 font-body text-sm font-bold opacity-60 backdrop-blur-sm"
+            >
+              🎁 {formatCooldown(bonus.msRemaining)}
+            </div>
+          ))}
           <button
             onClick={() => navigate('/shop')}
             className="clay cursor-pointer rounded-full bg-white/40 px-4 py-2 font-body text-lg font-bold text-ink-light backdrop-blur-sm active:clay-pressed"
@@ -124,6 +171,12 @@ export default function HomeScreen() {
             🏆 Board
           </button>
         </div>
+
+        {(bonus.lastClaimed !== null || bonus.error) && (
+          <div className="mt-3 text-sm font-extrabold text-ink-light opacity-70">
+            {bonus.error ?? `🎁 +${bonus.lastClaimed} coins — come back tomorrow for more!`}
+          </div>
+        )}
       </header>
 
       <div className="relative z-10 w-full max-w-md space-y-5">

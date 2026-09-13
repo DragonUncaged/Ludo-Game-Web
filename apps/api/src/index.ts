@@ -19,7 +19,10 @@ import {
   getCosmeticsTransactionHistory,
   grantDefaultCosmeticsToPlayer,
   getLeaderboard,
+  getDailyBonusState,
+  claimDailyBonus,
 } from '@ludo/db';
+import { DAILY_BONUS_COOLDOWN_MS, computeDailyBonus } from '@ludo/shared';
 
 loadRootEnv();
 const port = Number(process.env.API_PORT ?? 8080);
@@ -99,6 +102,53 @@ app.get('/coins/:deviceToken/transactions', async (req, res) => {
     res.json(transactions);
   } catch (err) {
     console.error('[api] coin transactions failed', err);
+    res.status(500).json({ error: 'DB_ERROR' });
+  }
+});
+
+// Daily bonus — the only way new coins enter the economy.
+app.get('/coins/:deviceToken/bonus', async (req, res) => {
+  if (!UUID_RE.test(req.params.deviceToken)) return res.status(400).json({ error: 'BAD_REQUEST' });
+  try {
+    const state = await getDailyBonusState(req.params.deviceToken);
+    if (!state) return res.status(404).json({ error: 'NOT_FOUND' });
+    res.json({ balance: state.balance, ...computeDailyBonus(state.balance, state.lastBonusAt, state.now) });
+  } catch (err) {
+    console.error('[api] bonus status failed', err);
+    res.status(500).json({ error: 'DB_ERROR' });
+  }
+});
+
+app.post('/coins/:deviceToken/bonus', async (req, res) => {
+  if (!UUID_RE.test(req.params.deviceToken)) return res.status(400).json({ error: 'BAD_REQUEST' });
+  try {
+    const state = await getDailyBonusState(req.params.deviceToken);
+    if (!state) return res.status(404).json({ error: 'NOT_FOUND' });
+
+    const status = computeDailyBonus(state.balance, state.lastBonusAt, state.now);
+    if (!status.claimable) {
+      return res.status(409).json({ error: 'ON_COOLDOWN', balance: state.balance, ...status });
+    }
+
+    // The write re-checks the cooldown itself, so a racing second request is
+    // rejected here rather than paying out twice.
+    const claim = await claimDailyBonus(req.params.deviceToken, status.amount, DAILY_BONUS_COOLDOWN_MS);
+    if (!claim) return res.status(404).json({ error: 'NOT_FOUND' });
+    if (!claim.claimed) {
+      const after = computeDailyBonus(claim.balance, claim.lastBonusAt, Date.now());
+      return res.status(409).json({ error: 'ON_COOLDOWN', balance: claim.balance, ...after });
+    }
+    const next = computeDailyBonus(claim.balance, claim.lastBonusAt, Date.now());
+    res.json({
+      claimed: true,
+      amount: claim.amount,
+      balance: claim.balance,
+      claimable: next.claimable,
+      nextClaimAt: next.nextClaimAt,
+      msRemaining: next.msRemaining,
+    });
+  } catch (err) {
+    console.error('[api] bonus claim failed', err);
     res.status(500).json({ error: 'DB_ERROR' });
   }
 });

@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 
-const WS_URL: string = import.meta.env.VITE_WS_URL ?? 'ws://localhost:2567';
-const HTTP_URL = WS_URL.replace(/^ws/, 'http');
+// Coins live on the API service, not the realtime one — pointing this at the
+// Colyseus host made every balance 404 and render as 0.
+const API_URL: string = import.meta.env.VITE_API_URL ?? 'http://localhost:8080';
 
 export interface CoinBalanceData {
   balance: number;
@@ -23,7 +24,7 @@ export function useCoinBalance(deviceToken: string | null, autoRefreshMs = 30000
 
     try {
       setError(null);
-      const res = await fetch(`${HTTP_URL}/coins/${deviceToken}/balance`);
+      const res = await fetch(`${API_URL}/coins/${deviceToken}/balance`);
       if (!res.ok) {
         if (res.status === 404) {
           setBalance(null);

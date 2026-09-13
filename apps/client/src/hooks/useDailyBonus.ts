@@ -1,0 +1,109 @@
+import { useCallback, useEffect, useState } from 'react';
+import { DAILY_BONUS_COOLDOWN_MS } from '@ludo/shared';
+
+const API_URL: string = import.meta.env.VITE_API_URL ?? 'http://localhost:8080';
+
+export interface DailyBonusState {
+  /** False until the player has a wallet (no guest row yet) — hide the button. */
+  available: boolean;
+  claimable: boolean;
+  /** Coins a claim would pay right now. */
+  amount: number;
+  msRemaining: number;
+  loading: boolean;
+  claiming: boolean;
+  /** Amount just claimed, for the celebratory toast; cleared by the caller. */
+  lastClaimed: number | null;
+  error: string | null;
+  claim: () => Promise<void>;
+  refresh: () => Promise<void>;
+}
+
+interface BonusResponse {
+  claimable: boolean;
+  amount: number;
+  msRemaining: number;
+}
+
+/**
+ * Daily bonus status for the home screen. The server owns both the cooldown and
+ * the payout; this only mirrors them and ticks the countdown down locally so the
+ * button unlocks without a refresh.
+ */
+export function useDailyBonus(deviceToken: string | null, onClaimed?: () => void): DailyBonusState {
+  const [status, setStatus] = useState<BonusResponse | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [claiming, setClaiming] = useState(false);
+  const [lastClaimed, setLastClaimed] = useState<number | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const refresh = useCallback(async () => {
+    if (!deviceToken) {
+      setLoading(false);
+      return;
+    }
+    try {
+      const res = await fetch(`${API_URL}/coins/${deviceToken}/bonus`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      setStatus((await res.json()) as BonusResponse);
+      setError(null);
+    } catch {
+      // A missing account (never played) simply has no bonus to show.
+      setStatus(null);
+    } finally {
+      setLoading(false);
+    }
+  }, [deviceToken]);
+
+  useEffect(() => {
+    void refresh();
+  }, [refresh]);
+
+  // Local countdown so the button flips to claimable on its own.
+  useEffect(() => {
+    if (!status || status.claimable) return;
+    const id = setInterval(() => {
+      setStatus((s) => (s && !s.claimable ? { ...s, msRemaining: Math.max(0, s.msRemaining - 1000) } : s));
+    }, 1000);
+    return () => clearInterval(id);
+  }, [status?.claimable]);
+
+  useEffect(() => {
+    if (status && !status.claimable && status.msRemaining <= 0) void refresh();
+  }, [status?.msRemaining, status?.claimable, refresh]);
+
+  const claim = useCallback(async () => {
+    if (!deviceToken || claiming) return;
+    setClaiming(true);
+    setError(null);
+    try {
+      const res = await fetch(`${API_URL}/coins/${deviceToken}/bonus`, { method: 'POST' });
+      const data = (await res.json()) as BonusResponse & { claimed?: boolean; error?: string };
+      if (!res.ok) {
+        setError(data.error === 'ON_COOLDOWN' ? 'Already claimed today' : 'Could not claim bonus');
+        setStatus({ claimable: false, amount: 0, msRemaining: data.msRemaining ?? DAILY_BONUS_COOLDOWN_MS });
+        return;
+      }
+      setLastClaimed(data.amount);
+      setStatus({ claimable: false, amount: 0, msRemaining: data.msRemaining });
+      onClaimed?.();
+    } catch {
+      setError('Could not claim bonus');
+    } finally {
+      setClaiming(false);
+    }
+  }, [deviceToken, claiming, onClaimed]);
+
+  return {
+    available: status !== null,
+    claimable: status?.claimable ?? false,
+    amount: status?.amount ?? 0,
+    msRemaining: status?.msRemaining ?? 0,
+    loading,
+    claiming,
+    lastClaimed,
+    error,
+    claim,
+    refresh,
+  };
+}
