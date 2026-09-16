@@ -118,8 +118,11 @@ export class LudoRoom extends Room<LudoState> {
       const betAmount = Math.max(0, msg?.betAmount ?? 0);
       this.state.betAmount = betAmount;
       this.state.bettingStatus = betAmount === 0 ? 'accepted' : 'in_progress';
-      // Reset all acceptedBet flags when bet amount changes
-      this.state.players.forEach(p => { p.acceptedBet = false; });
+      // Reset acceptance when the amount changes; proposing a wager implies the
+      // host consents to it (the host UI has no separate Accept button).
+      this.state.players.forEach((p) => {
+        p.acceptedBet = betAmount > 0 && p.sessionId === client.sessionId;
+      });
     });
 
     this.onMessage('acceptBet', (client) => {
@@ -128,6 +131,17 @@ export class LudoRoom extends Room<LudoState> {
       if (seat < 0) return;
       const player = this.state.players[seat]!;
       player.acceptedBet = true;
+    });
+
+    // Any human can decline, which voids the wager for the whole room.
+    this.onMessage('declineBet', (client) => {
+      if (this.state.roomPhase !== 'waiting') return;
+      if (this.seatOf(client.sessionId) < 0) return;
+      this.state.betAmount = 0;
+      this.state.bettingStatus = 'accepted';
+      this.state.players.forEach((p) => {
+        p.acceptedBet = false;
+      });
     });
 
     this.onMessage('time', (client, msg: TimeIntent) => {

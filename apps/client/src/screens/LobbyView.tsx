@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useConnection } from '../store/connectionStore';
 import { useGame } from '../store/gameStore';
@@ -14,7 +15,22 @@ export default function LobbyView() {
   const { room } = useConnection();
   const { snap, mySessionId } = useGame();
   const settings = useSettings();
-  const { balance: myBalance } = useCoinBalance(settings.deviceToken);
+  const { balance: myBalance, loading: balanceLoading } = useCoinBalance(settings.deviceToken);
+  const [notice, setNotice] = useState<string | null>(null);
+
+  // Surface server-side rejections (e.g. "All players must accept the bet to start").
+  useEffect(() => {
+    if (!room) return;
+    let active = true;
+    room.onMessage<{ message?: string }>('error', (msg) => {
+      if (!active || !msg?.message) return;
+      setNotice(msg.message);
+      setTimeout(() => active && setNotice(null), 3000);
+    });
+    return () => {
+      active = false;
+    };
+  }, [room]);
 
   if (!snap || !room) return null;
 
@@ -30,12 +46,16 @@ export default function LobbyView() {
 
   const handleBetAmountChange = (amount: number) => {
     if (isHost) {
-      room.send('setBetAmount', { amount });
+      room.send('setBetAmount', { betAmount: amount });
     }
   };
 
   const handleAcceptBet = () => {
     room.send('acceptBet', { accepted: true });
+  };
+
+  const handleDeclineBet = () => {
+    room.send('declineBet');
   };
 
   return (
@@ -73,15 +93,22 @@ export default function LobbyView() {
         </div>
       </div>
 
-      {snap.bettingStatus !== 'accepted' && (
+      {/* Hosts can always adjust the wager before start; others see it while pending. */}
+      {(isHost || snap.bettingStatus !== 'accepted') && (
         <BettingSetupPanel
           snap={snap}
           isHost={isHost}
           mySessionId={mySessionId}
           myBalance={myBalance}
+          balanceLoading={balanceLoading}
           onBetAmountChange={handleBetAmountChange}
           onAcceptBet={handleAcceptBet}
+          onDeclineBet={handleDeclineBet}
         />
+      )}
+
+      {notice && (
+        <div className="clay bg-clay-red/90 px-4 py-3 text-center text-sm font-extrabold text-white">{notice}</div>
       )}
 
       {isHost ? (

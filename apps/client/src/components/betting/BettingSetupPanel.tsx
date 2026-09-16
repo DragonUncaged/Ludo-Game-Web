@@ -5,8 +5,10 @@ interface BettingSetupPanelProps {
   isHost: boolean;
   mySessionId: string;
   myBalance: number;
+  balanceLoading: boolean;
   onBetAmountChange: (amount: number) => void;
   onAcceptBet: () => void;
+  onDeclineBet: () => void;
 }
 
 export function BettingSetupPanel({
@@ -14,13 +16,15 @@ export function BettingSetupPanel({
   isHost,
   mySessionId,
   myBalance,
+  balanceLoading,
   onBetAmountChange,
   onAcceptBet,
+  onDeclineBet,
 }: BettingSetupPanelProps) {
   const { betAmount, players } = snap;
   const myPlayer = players.find((p) => p.sessionId === mySessionId);
   const myAccepted = myPlayer?.acceptedBet ?? false;
-  const canAcceptBet = myBalance >= betAmount;
+  const canAcceptBet = !balanceLoading && myBalance >= betAmount;
   // Bots hold no coins — only humans stake, so only humans size the pot.
   const bettors = players.filter((p) => !p.isBot);
   const acceptedCount = bettors.filter((p) => p.acceptedBet).length;
@@ -33,41 +37,49 @@ export function BettingSetupPanel({
       <div className="clay bg-board-light p-5">
         <div className="mb-3 font-display text-lg font-extrabold text-ink-light">🎲 Betting Setup</div>
 
-        {/* Bet amount slider and input */}
-        <div className="mb-4 space-y-2">
-          <div className="flex items-center justify-between text-sm font-bold opacity-70">
-            <span>Wager amount:</span>
-            <span>{myBalance} 💰 available</span>
+        {/* Bet amount slider and input — never clamp against a balance that hasn't
+            loaded yet (it reads as 0 and would zero the wager). The server
+            re-validates every bettor's balance at start anyway. */}
+        {balanceLoading ? (
+          <div className="mb-4 rounded-lg bg-seg-light px-3 py-3 text-sm font-bold opacity-60">
+            Loading your wallet…
           </div>
+        ) : (
+          <div className="mb-4 space-y-2">
+            <div className="flex items-center justify-between text-sm font-bold opacity-70">
+              <span>Wager amount:</span>
+              <span>{myBalance} 💰 available</span>
+            </div>
 
-          {/* Slider */}
-          <div className="flex items-center gap-3">
-            <span className="text-xs font-bold opacity-50">0</span>
+            {/* Slider */}
+            <div className="flex items-center gap-3">
+              <span className="text-xs font-bold opacity-50">0</span>
+              <input
+                type="range"
+                min="0"
+                max={Math.max(myBalance, betAmount)}
+                value={betAmount}
+                onChange={(e) => onBetAmountChange(Number(e.target.value))}
+                className="h-2 w-full cursor-pointer rounded-lg bg-board-dark appearance-none"
+                style={{
+                  background: `linear-gradient(to right, rgb(255, 154, 139) 0%, rgb(155, 227, 168) ${(betAmount / Math.max(myBalance, betAmount, 1)) * 100}%, rgb(218, 214, 224) ${(betAmount / Math.max(myBalance, betAmount, 1)) * 100}%, rgb(218, 214, 224) 100%)`,
+                }}
+              />
+              <span className="text-xs font-bold opacity-50">{myBalance}</span>
+            </div>
+
+            {/* Numeric input */}
             <input
-              type="range"
+              type="number"
               min="0"
               max={myBalance}
               value={betAmount}
-              onChange={(e) => onBetAmountChange(Number(e.target.value))}
-              className="h-2 w-full cursor-pointer rounded-lg bg-board-dark appearance-none"
-              style={{
-                background: `linear-gradient(to right, rgb(255, 154, 139) 0%, rgb(155, 227, 168) ${(betAmount / myBalance) * 100}%, rgb(218, 214, 224) ${(betAmount / myBalance) * 100}%, rgb(218, 214, 224) 100%)`,
-              }}
+              onChange={(e) => onBetAmountChange(Math.max(0, Number(e.target.value)))}
+              className="clay-pressed w-full rounded-lg bg-seg-light px-3 py-2 font-bold text-ink-light"
+              placeholder="Enter bet amount"
             />
-            <span className="text-xs font-bold opacity-50">{myBalance}</span>
           </div>
-
-          {/* Numeric input */}
-          <input
-            type="number"
-            min="0"
-            max={myBalance}
-            value={betAmount}
-            onChange={(e) => onBetAmountChange(Math.max(0, Math.min(myBalance, Number(e.target.value))))}
-            className="clay-pressed w-full rounded-lg bg-seg-light px-3 py-2 font-bold text-ink-light"
-            placeholder="Enter bet amount"
-          />
-        </div>
+        )}
 
         {/* Pool info */}
         <div className="mb-4 rounded-lg bg-seg-light px-3 py-2 text-sm font-bold opacity-70">
@@ -158,7 +170,7 @@ export function BettingSetupPanel({
 
         {betAmount > 0 && !myAccepted && (
           <button
-            onClick={() => onBetAmountChange(0)}
+            onClick={onDeclineBet}
             className="flex-1 cursor-pointer rounded-xl border-0 bg-transparent py-3 font-bold text-red-500"
           >
             Decline ✗
