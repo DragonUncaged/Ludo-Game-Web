@@ -14,6 +14,9 @@ export async function safeWrite(label: string, fn: () => Promise<unknown>): Prom
   }
 }
 
+/** Free items every new guest starts with, equipped. Seeded by migration 003. */
+const DEFAULT_COSMETICS = ['char_default', 'dice_default', 'board_default', 'emote_default'];
+
 export async function upsertGuestUser(deviceToken: string, nickname: string): Promise<number> {
   const client = await getPool().connect();
   try {
@@ -35,10 +38,8 @@ export async function upsertGuestUser(deviceToken: string, nickname: string): Pr
     );
     const userId = Number(res.rows[0]!.id);
 
-    // Grant default cosmetics to new players
     if (isNewUser) {
-      const defaultCosmetics = ['char_default', 'dice_default', 'board_default', 'emote_default'];
-      for (const cosmeticId of defaultCosmetics) {
+      for (const cosmeticId of DEFAULT_COSMETICS) {
         await client.query(
           `INSERT INTO player_cosmetics (user_id, cosmetic_id, is_equipped)
            VALUES ($1, $2, true)
@@ -191,30 +192,23 @@ export async function getCoinBalance(deviceToken: string): Promise<number | null
   return res.rows[0] ? Number(res.rows[0].coin_balance) : null;
 }
 
+export type CoinTransactionType =
+  | 'bet_placed'
+  | 'bet_won'
+  | 'bet_lost'
+  | 'initial_allocation'
+  | 'admin_adjustment'
+  | 'daily_bonus';
+
 export interface CoinTransaction {
   id: number;
   userId: number;
   matchId: number | null;
-  transactionType: 'bet_placed' | 'bet_won' | 'bet_lost' | 'initial_allocation' | 'admin_adjustment';
+  transactionType: CoinTransactionType;
   amount: number;
   balanceAfter: number;
   description: string | null;
   createdAt: string;
-}
-
-export async function logCoinTransaction(
-  userId: number,
-  matchId: number | null,
-  transactionType: 'bet_placed' | 'bet_won' | 'bet_lost' | 'initial_allocation' | 'admin_adjustment',
-  amount: number,
-  balanceAfter: number,
-  description?: string
-): Promise<void> {
-  await getPool().query(
-    `INSERT INTO coin_transactions (user_id, match_id, transaction_type, amount, balance_after, description)
-     VALUES ($1, $2, $3, $4, $5, $6)`,
-    [userId, matchId, transactionType, amount, balanceAfter, description ?? null]
-  );
 }
 
 export async function getCoinTransactionHistory(deviceToken: string, limit = 50): Promise<CoinTransaction[]> {
@@ -240,19 +234,12 @@ export async function getCoinTransactionHistory(deviceToken: string, limit = 50)
     id: Number(row.id),
     userId: Number(row.user_id),
     matchId: row.match_id ? Number(row.match_id) : null,
-    transactionType: row.transaction_type as CoinTransaction['transactionType'],
+    transactionType: row.transaction_type as CoinTransactionType,
     amount: Number(row.amount),
     balanceAfter: Number(row.balance_after),
     description: row.description,
     createdAt: row.created_at,
   }));
-}
-
-export async function updateCoinBalance(userId: number, newBalance: number): Promise<void> {
-  await getPool().query(
-    `UPDATE guest_users SET coin_balance = $2 WHERE id = $1`,
-    [userId, newBalance]
-  );
 }
 
 export interface SettlementResult {
@@ -861,30 +848,6 @@ export async function getCosmeticsTransactionHistory(
   }));
 }
 
-export async function grantDefaultCosmeticsToPlayer(userId: number): Promise<void> {
-  const client = await getPool().connect();
-  try {
-    await client.query('BEGIN');
-
-    const defaultCosmetics = ['char_default', 'dice_default', 'board_default', 'emote_default'];
-    for (const cosmeticId of defaultCosmetics) {
-      await client.query(
-        `INSERT INTO player_cosmetics (user_id, cosmetic_id, is_equipped)
-         VALUES ($1, $2, true)
-         ON CONFLICT (user_id, cosmetic_id) DO NOTHING`,
-        [userId, cosmeticId]
-      );
-    }
-
-    await client.query('COMMIT');
-  } catch (err) {
-    await client.query('ROLLBACK');
-    throw err;
-  } finally {
-    client.release();
-  }
-}
-
 export interface LeaderboardEntry {
   id: number;
   nickname: string;
@@ -910,7 +873,11 @@ export async function getLeaderboard(limit = 50): Promise<LeaderboardEntry[]> {
             COALESCE(s.games_played, 0) AS games_played,
             COALESCE(u.coin_balance, 0) AS coin_balance,
             COALESCE(s.captures_made, 0) AS captures_made,
-            EXISTS(SELECT 1 FROM player_cosmetics WHERE user_id = u.id AND is_equipped = true) AS has_equipped
+            EXISTS(
+              SELECT 1 FROM player_cosmetics pc
+              JOIN cosmetics c ON c.id = pc.cosmetic_id
+              WHERE pc.user_id = u.id AND pc.is_equipped AND c.price > 0
+            ) AS has_equipped
      FROM guest_users u
      LEFT JOIN user_stats s ON s.user_id = u.id
      WHERE s.wins > 0 OR s.games_played > 0

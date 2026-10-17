@@ -1,0 +1,2 @@
+// REST service: wallet, shop, leaderboard. Room traffic goes over the websocket (see colyseus.ts).
+export const API_URL: string = import.meta.env.VITE_API_URL ?? 'http://localhost:8080';

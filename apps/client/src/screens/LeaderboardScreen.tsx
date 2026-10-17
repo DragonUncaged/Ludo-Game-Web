@@ -1,8 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSettings } from '../store/settingsStore';
-
-const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8080';
+import { API_URL } from '../lib/api';
 
 interface LeaderboardEntry {
   id: number;

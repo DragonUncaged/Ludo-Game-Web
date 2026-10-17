@@ -13,8 +13,7 @@ export interface GamePlayer {
   acceptedBet: boolean;
   staked: boolean;
   forfeitedBet: boolean;
-  equippedCosmeticId: number | null;
-  equippedCosmeticCategory: string;
+  equippedCharacter: string;
 }
 
 export interface GameSnap {

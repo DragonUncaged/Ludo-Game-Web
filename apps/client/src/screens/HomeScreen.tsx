@@ -10,8 +10,7 @@ import { COLOR_HEX } from '../components/board/colors';
 import { useCoinBalance } from '../hooks/useCoinBalance';
 import { useDailyBonus } from '../hooks/useDailyBonus';
 import { formatCooldown } from '@ludo/shared';
-
-const API_URL: string = import.meta.env.VITE_API_URL ?? 'http://localhost:8080';
+import { API_URL } from '../lib/api';
 
 function waitForJoinCode(room: Room): Promise<string> {
   return new Promise((resolve) => {

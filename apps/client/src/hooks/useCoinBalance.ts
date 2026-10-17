@@ -1,57 +1,51 @@
-import { useState, useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+import { API_URL } from '../lib/api';
 
-// Coins live on the API service, not the realtime one — pointing this at the
-// Colyseus host made every balance 404 and render as 0.
-const API_URL: string = import.meta.env.VITE_API_URL ?? 'http://localhost:8080';
-
-export interface CoinBalanceData {
+export interface CoinBalance {
   balance: number;
   loading: boolean;
   error: string | null;
   refetch: () => Promise<void>;
 }
 
-export function useCoinBalance(deviceToken: string | null, autoRefreshMs = 30000): CoinBalanceData {
-  const [balance, setBalance] = useState<number | null>(null);
+/**
+ * Polls the wallet. A 404 means the guest row doesn't exist yet, which reads as 0.
+ * On a network error the last known balance is kept rather than flashing to 0.
+ */
+export function useCoinBalance(deviceToken: string | null, refreshMs = 30_000): CoinBalance {
+  const [balance, setBalance] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchBalance = async () => {
+  const refetch = useCallback(async () => {
     if (!deviceToken) {
       setLoading(false);
       return;
     }
-
     try {
-      setError(null);
       const res = await fetch(`${API_URL}/coins/${deviceToken}/balance`);
-      if (!res.ok) {
-        if (res.status === 404) {
-          setBalance(null);
-        } else {
-          throw new Error(`HTTP ${res.status}`);
-        }
+      if (res.status === 404) {
+        setBalance(0);
+      } else if (!res.ok) {
+        throw new Error(`HTTP ${res.status}`);
       } else {
         const data = (await res.json()) as { balance: number };
         setBalance(data.balance);
       }
+      setError(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load balance');
-      setBalance(null);
     } finally {
       setLoading(false);
     }
-  };
+  }, [deviceToken]);
 
   useEffect(() => {
-    fetchBalance();
+    void refetch();
+    if (refreshMs <= 0) return;
+    const id = setInterval(() => void refetch(), refreshMs);
+    return () => clearInterval(id);
+  }, [refetch, refreshMs]);
 
-    // Auto-refresh interval
-    if (autoRefreshMs > 0) {
-      const interval = setInterval(fetchBalance, autoRefreshMs);
-      return () => clearInterval(interval);
-    }
-  }, [deviceToken, autoRefreshMs]);
-
-  return { balance: balance ?? 0, loading, error, refetch: fetchBalance };
+  return { balance, loading, error, refetch };
 }

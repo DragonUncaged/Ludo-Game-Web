@@ -14,8 +14,8 @@ export class PlayerSchema extends Schema {
   @type('boolean') staked = false;
   /** Staked, then left mid-match — pays into the pot but cannot win it. */
   @type('boolean') forfeitedBet = false;
-  @type('int32') equippedCosmeticId: number | null = null;
-  @type('string') equippedCosmeticCategory = '';
+  /** Equipped character skin id, or '' when the player is on the free default. */
+  @type('string') equippedCharacter = '';
 }
 
 export class LudoState extends Schema {

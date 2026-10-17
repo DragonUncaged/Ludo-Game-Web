@@ -21,6 +21,7 @@ import {
   completeMatch,
   dbEnabled,
   getCoinBalance,
+  getPlayerCosmeticsEquipped,
   insertMatch,
   safeWrite,
   updateSnapshot,
@@ -60,7 +61,6 @@ export class LudoRoom extends Room<LudoState> {
   private turnNonce = 0;
   private deviceTokens = new Map<string, string>(); // sessionId → deviceToken
   private nicknames = new Map<string, string>(); // sessionId → nickname as given at join
-  private userIds = new Map<string, number>(); // sessionId → userId (database ID)
   private matchId: number | null = null;
   /** monotonic broadcast counter — lets clients drop duplicate/stale event deliveries */
   private seq = 0;
@@ -162,38 +162,27 @@ export class LudoRoom extends Room<LudoState> {
     }
     this.deviceTokens.set(client.sessionId, token);
 
-    // Load coin balance and equipped cosmetics for this player
-    let coinBalance = 100; // default
-    let userId: number | null = null;
-    let equippedCosmeticId: number | null = null;
-    let equippedCosmeticCategory = '';
-    if (token && dbEnabled()) {
-      try {
-        const balance = await getCoinBalance(token);
-        if (balance !== null) coinBalance = balance;
-        // Also store userId for later coin transfer
-        const { getStatsByDeviceToken, getPlayerCosmeticsEquipped } = await import('@ludo/db');
-        const stats = await getStatsByDeviceToken(token);
-        if (stats) userId = stats.id;
-        // Load equipped cosmetics
-        const equipped = await getPlayerCosmeticsEquipped(token);
-        if (equipped.character) {
-          equippedCosmeticId = Number(equipped.character.id);
-          equippedCosmeticCategory = equipped.character.category;
-        }
-      } catch (err) {
-        console.error('[db] Failed to load coin balance or cosmetics', err);
-      }
-    }
-    if (userId) this.userIds.set(client.sessionId, userId);
-
     const player = new PlayerSchema();
     player.sessionId = client.sessionId;
     player.nickname = (options?.nickname || 'Player').slice(0, 20);
     this.nicknames.set(client.sessionId, player.nickname);
-    player.coinBalance = coinBalance;
-    player.equippedCosmeticId = equippedCosmeticId;
-    player.equippedCosmeticCategory = equippedCosmeticCategory;
+
+    if (token && dbEnabled()) {
+      try {
+        const [balance, equipped] = await Promise.all([
+          getCoinBalance(token),
+          getPlayerCosmeticsEquipped(token),
+        ]);
+        if (balance !== null) player.coinBalance = balance;
+        // Everyone owns the free default, so only a bought skin is worth showing off.
+        if (equipped.character && equipped.character.price > 0) {
+          player.equippedCharacter = equipped.character.id;
+        }
+      } catch (err) {
+        console.error('[db] failed to load wallet for joining player', err);
+      }
+    }
+
     this.state.players.push(player);
     if (!this.state.hostSessionId) this.state.hostSessionId = client.sessionId;
   }
@@ -207,7 +196,6 @@ export class LudoRoom extends Room<LudoState> {
       this.state.players.splice(seat, 1);
       this.deviceTokens.delete(client.sessionId);
       this.nicknames.delete(client.sessionId);
-      this.userIds.delete(client.sessionId);
       if (this.state.hostSessionId === client.sessionId && this.state.players.length > 0) {
         this.state.hostSessionId = this.state.players[0]!.sessionId;
       }
@@ -547,7 +535,6 @@ export class LudoRoom extends Room<LudoState> {
   onDispose() {
     this.deviceTokens.clear();
     this.nicknames.clear();
-    this.userIds.clear();
     if (this.matchId !== null && this.state.roomPhase !== 'ended') {
       const matchId = this.matchId;
       void safeWrite('abandon match', () => abandonMatch(matchId));

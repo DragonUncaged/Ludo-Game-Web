@@ -17,7 +17,6 @@ import {
   purchaseCosmeticAtomic,
   equipCosmeticAtomic,
   getCosmeticsTransactionHistory,
-  grantDefaultCosmeticsToPlayer,
   getLeaderboard,
   getDailyBonusState,
   claimDailyBonus,

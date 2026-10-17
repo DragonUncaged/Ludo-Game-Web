@@ -1,4 +1,4 @@
-import type { GamePlayer, GameSnap } from '../../store/gameStore';
+import type { GameSnap } from '../../store/gameStore';
 
 interface BettingSetupPanelProps {
   snap: GameSnap;

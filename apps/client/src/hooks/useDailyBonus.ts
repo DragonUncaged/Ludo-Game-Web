@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { DAILY_BONUS_COOLDOWN_MS } from '@ludo/shared';
-
-const API_URL: string = import.meta.env.VITE_API_URL ?? 'http://localhost:8080';
+import { API_URL } from '../lib/api';
 
 export interface DailyBonusState {
   /** False until the player has a wallet (no guest row yet) — hide the button. */

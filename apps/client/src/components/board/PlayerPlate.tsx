@@ -84,8 +84,10 @@ export const PlayerPlate = memo(function PlayerPlate({
             {player.nickname}
             {isMe ? ' (you)' : ''}
           </span>
-          {player.equippedCosmeticId && (
-            <span className="shrink-0 text-lg">✨</span>
+          {player.equippedCharacter && (
+            <span className="shrink-0 text-lg" title="Wearing a shop skin">
+              ✨
+            </span>
           )}
         </div>
         <div className="text-[11px] font-bold opacity-60" style={{ color: dark ? '#f3eefe' : '#4a4258' }}>

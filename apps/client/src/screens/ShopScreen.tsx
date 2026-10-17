@@ -1,8 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSettings } from '../store/settingsStore';
-
-const API_URL = 'http://localhost:8080';
+import { API_URL } from '../lib/api';
 
 type CosmeticCategory = 'character' | 'dice' | 'board' | 'emote';
 
@@ -22,9 +21,15 @@ interface PlayerCosmetic extends Cosmetic {
   equipped: boolean;
 }
 
+async function getJson<T>(url: string): Promise<T> {
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`Request failed (${res.status})`);
+  return (await res.json()) as T;
+}
+
 export default function ShopScreen() {
   const navigate = useNavigate();
-  const settings = useSettings();
+  const { deviceToken } = useSettings();
   const [selectedCategory, setSelectedCategory] = useState<CosmeticCategory>('character');
   const [cosmetics, setCosmetics] = useState<PlayerCosmetic[]>([]);
   const [coinBalance, setCoinBalance] = useState(0);
@@ -33,109 +38,83 @@ export default function ShopScreen() {
   const [purchasing, setPurchasing] = useState<string | null>(null);
   const [equipping, setEquipping] = useState<string | null>(null);
 
-  useEffect(() => {
-    loadShopData();
-  }, [settings.deviceToken]);
-
-  const loadShopData = async (category: CosmeticCategory = selectedCategory) => {
-    try {
+  const load = useCallback(
+    async (category: CosmeticCategory) => {
       setLoading(true);
       setError(null);
+      try {
+        const [wallet, shop, owned, equipped] = await Promise.all([
+          getJson<{ balance: number }>(`${API_URL}/coins/${deviceToken}/balance`),
+          getJson<{ cosmetics: Cosmetic[] }>(`${API_URL}/shop/cosmetics?category=${category}`),
+          getJson<{ owned: Cosmetic[] }>(`${API_URL}/guests/${deviceToken}/cosmetics`),
+          getJson<{ equipped: Record<string, Cosmetic | null> }>(
+            `${API_URL}/guests/${deviceToken}/cosmetics/equipped`
+          ),
+        ]);
+        const ownedIds = new Set(owned.owned.map((c) => c.id));
+        const equippedIds = new Set(
+          Object.values(equipped.equipped).flatMap((c) => (c ? [c.id] : []))
+        );
+        setCoinBalance(wallet.balance);
+        setCosmetics(
+          shop.cosmetics.map((c) => ({ ...c, owned: ownedIds.has(c.id), equipped: equippedIds.has(c.id) }))
+        );
+      } catch {
+        setError('Could not load the shop. Play a game first to open your wallet.');
+      } finally {
+        setLoading(false);
+      }
+    },
+    [deviceToken]
+  );
 
-      // Fetch balance
-      const balanceRes = await fetch(`${API_URL}/coins/${settings.deviceToken}/balance`);
-      if (!balanceRes.ok) throw new Error('Failed to load balance');
-      const balanceData = await balanceRes.json();
-      setCoinBalance(balanceData.balance);
-
-      // Fetch shop cosmetics
-      const shopRes = await fetch(`${API_URL}/shop/cosmetics?category=${category}`);
-      if (!shopRes.ok) throw new Error('Failed to load cosmetics');
-      const shopData = await shopRes.json();
-
-      // Fetch owned cosmetics
-      const ownedRes = await fetch(`${API_URL}/guests/${settings.deviceToken}/cosmetics`);
-      if (!ownedRes.ok) throw new Error('Failed to load owned cosmetics');
-      const ownedData = await ownedRes.json();
-      const ownedIds = new Set((ownedData.owned ?? []).map((c: Cosmetic) => c.id));
-
-      // Fetch equipped cosmetics
-      const equippedRes = await fetch(`${API_URL}/guests/${settings.deviceToken}/cosmetics/equipped`);
-      if (!equippedRes.ok) throw new Error('Failed to load equipped cosmetics');
-      const equippedData = await equippedRes.json();
-      const equippedIds = new Set(
-        Object.values(equippedData.equipped ?? {})
-          .filter((c: any): c is NonNullable<typeof c> => c !== null)
-          .map((c: any) => c.id)
-      );
-
-      // Merge data
-      const merged = shopData.cosmetics.map((cosmetic: Cosmetic) => ({
-        ...cosmetic,
-        owned: ownedIds.has(cosmetic.id),
-        equipped: equippedIds.has(cosmetic.id),
-      }));
-
-      setCosmetics(merged);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load shop');
-    } finally {
-      setLoading(false);
-    }
-  };
+  useEffect(() => {
+    void load(selectedCategory);
+  }, [load, selectedCategory]);
 
   const handlePurchase = async (cosmeticId: string) => {
+    setPurchasing(cosmeticId);
     try {
-      setPurchasing(cosmeticId);
-      const res = await fetch(`${API_URL}/guests/${settings.deviceToken}/cosmetics/purchase`, {
+      const res = await fetch(`${API_URL}/guests/${deviceToken}/cosmetics/purchase`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ cosmetic_id: cosmeticId }),
       });
-
-      const data = await res.json();
+      const data = (await res.json()) as { message?: string; new_balance?: number };
       if (!res.ok) {
-        setError(data.message || 'Purchase failed');
+        setError(data.message ?? 'Purchase failed');
         return;
       }
-
-      // Update balance and cosmetics
-      setCoinBalance(data.balance || coinBalance - (cosmetics.find(c => c.id === cosmeticId)?.price || 0));
-      setCosmetics(cosmetics.map(c =>
-        c.id === cosmeticId ? { ...c, owned: true } : c
-      ));
+      if (typeof data.new_balance === 'number') setCoinBalance(data.new_balance);
+      setCosmetics((list) => list.map((c) => (c.id === cosmeticId ? { ...c, owned: true } : c)));
       setError(null);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Purchase failed');
+    } catch {
+      setError('Purchase failed');
     } finally {
       setPurchasing(null);
     }
   };
 
   const handleEquip = async (cosmeticId: string) => {
+    setEquipping(cosmeticId);
     try {
-      setEquipping(cosmeticId);
-      const res = await fetch(`${API_URL}/guests/${settings.deviceToken}/cosmetics/${cosmeticId}/equip`, {
+      const res = await fetch(`${API_URL}/guests/${deviceToken}/cosmetics/${cosmeticId}/equip`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ equipped: true }),
       });
-
       if (!res.ok) {
-        const data = await res.json();
-        setError(data.message || 'Equip failed');
+        const data = (await res.json()) as { message?: string };
+        setError(data.message ?? 'Equip failed');
         return;
       }
-
-      // Update cosmetics state
-      const category = cosmetics.find(c => c.id === cosmeticId)?.category;
-      setCosmetics(cosmetics.map(c => ({
-        ...c,
-        equipped: c.id === cosmeticId ? true : (c.category === category ? false : c.equipped),
-      })));
+      setCosmetics((list) => {
+        const category = list.find((c) => c.id === cosmeticId)?.category;
+        return list.map((c) =>
+          c.category === category ? { ...c, equipped: c.id === cosmeticId } : c
+        );
+      });
       setError(null);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Equip failed');
+    } catch {
+      setError('Equip failed');
     } finally {
       setEquipping(null);
     }
@@ -195,10 +174,7 @@ export default function ShopScreen() {
           {categories.map((cat) => (
             <button
               key={cat}
-              onClick={() => {
-                setSelectedCategory(cat);
-                loadShopData(cat);
-              }}
+              onClick={() => setSelectedCategory(cat)}
               className={`clay rounded-xl px-4 py-2 font-body text-sm font-bold transition-all ${
                 selectedCategory === cat
                   ? 'bg-clay-yellow text-[#7a5b18] clay-pressed'
