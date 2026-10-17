@@ -6,7 +6,7 @@ import {
   computeDailyBonus,
   dailyBonusAmount,
   formatCooldown,
-} from '@ludo/shared';
+} from '../src/index.js';
 
 const NOW = 1_700_000_000_000; // fixed clock; the module never reads Date.now()
 

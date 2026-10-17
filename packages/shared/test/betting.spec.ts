@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { coinDeltaForSeat, computeSettlement } from '@ludo/shared';
-import type { BettingSeat } from '@ludo/shared';
+import { coinDeltaForSeat, computeSettlement } from '../src/index.js';
+import type { BettingSeat } from '../src/index.js';
 
 /** Four seats, ranked in seat order, all human unless overridden. */
 function seats(overrides: Array<Partial<BettingSeat>> = []): BettingSeat[] {

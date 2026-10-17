@@ -10,9 +10,10 @@
     "dev": "echo '@ludo/shared: nothing to run'",
     "build": "tsc",
     "typecheck": "tsc",
-    "test": "echo 'no tests'"
+    "test": "vitest run"
   },
   "devDependencies": {
-    "typescript": "^5.7.0"
+    "typescript": "^5.7.0",
+    "vitest": "^3.0.0"
   }
 }
