@@ -424,117 +424,47 @@ export async function claimDailyBonus(
   }
 }
 
-// Guest account cleanup queries
+// Guest cleanup: guests who never played a match and haven't been seen in a while.
+// Their coin/cosmetic rows cascade; match history can't exist for them by definition.
+
+const STALE_GUEST_FILTER = `
+  u.last_seen_at < now() - make_interval(days => $1)
+  AND NOT EXISTS (SELECT 1 FROM match_players mp WHERE mp.user_id = u.id)`;
 
 export interface StaleAccount {
   id: number;
-  deviceToken: string;
   nickname: string;
   coinBalance: number;
   createdAt: string;
   lastSeenAt: string;
-  matchesPlayed: number;
 }
 
-export async function getStaleGuestAccounts(
-  inactiveDays = 30,
-  includeUnplayedOnly = true
-): Promise<StaleAccount[]> {
-  const thresholdDate = new Date();
-  thresholdDate.setDate(thresholdDate.getDate() - inactiveDays);
-
-  let query = `
-    SELECT
-      u.id,
-      u.device_token AS "deviceToken",
-      u.nickname,
-      u.coin_balance AS "coinBalance",
-      u.created_at AS "createdAt",
-      u.last_seen_at AS "lastSeenAt",
-      COUNT(mp.id) AS "matchesPlayed"
-    FROM guest_users u
-    LEFT JOIN match_players mp ON mp.user_id = u.id
-    WHERE u.last_seen_at < $1
-  `;
-
-  if (includeUnplayedOnly) {
-    query += `
-      GROUP BY u.id
-      HAVING COUNT(mp.id) = 0
-    `;
-  } else {
-    query += `
-      GROUP BY u.id
-    `;
-  }
-
-  query += ` ORDER BY u.created_at ASC`;
-
+export async function getStaleGuestAccounts(inactiveDays: number): Promise<StaleAccount[]> {
   const res = await getPool().query<{
     id: string;
-    deviceToken: string;
     nickname: string;
-    coinBalance: string;
-    createdAt: string;
-    lastSeenAt: string;
-    matchesPlayed: string;
-  }>(query, [thresholdDate.toISOString()]);
-
-  return res.rows.map(row => ({
+    coin_balance: number;
+    created_at: string;
+    last_seen_at: string;
+  }>(
+    `SELECT u.id, u.nickname, u.coin_balance, u.created_at, u.last_seen_at
+       FROM guest_users u
+      WHERE ${STALE_GUEST_FILTER}
+      ORDER BY u.created_at`,
+    [inactiveDays]
+  );
+  return res.rows.map((row) => ({
     id: Number(row.id),
-    deviceToken: row.deviceToken,
     nickname: row.nickname,
-    coinBalance: Number(row.coinBalance),
-    createdAt: row.createdAt,
-    lastSeenAt: row.lastSeenAt,
-    matchesPlayed: Number(row.matchesPlayed),
+    coinBalance: Number(row.coin_balance),
+    createdAt: row.created_at,
+    lastSeenAt: row.last_seen_at,
   }));
 }
 
-export async function deleteStaleGuestAccounts(
-  inactiveDays = 30,
-  includeUnplayedOnly = true
-): Promise<number> {
-  const thresholdDate = new Date();
-  thresholdDate.setDate(thresholdDate.getDate() - inactiveDays);
-
-  const client = await getPool().connect();
-  try {
-    await client.query('BEGIN');
-
-    let deleteQuery = `
-      DELETE FROM guest_users
-      WHERE id IN (
-        SELECT u.id
-        FROM guest_users u
-        LEFT JOIN match_players mp ON mp.user_id = u.id
-        WHERE u.last_seen_at < $1
-    `;
-
-    if (includeUnplayedOnly) {
-      deleteQuery += `
-        GROUP BY u.id
-        HAVING COUNT(mp.id) = 0
-      `;
-    } else {
-      deleteQuery += `
-        GROUP BY u.id
-      `;
-    }
-
-    deleteQuery += ` )`;
-
-    const result = await client.query(deleteQuery, [thresholdDate.toISOString()]);
-    const deletedCount = result.rowCount ?? 0;
-
-    await client.query('COMMIT');
-    return deletedCount;
-  } catch (err) {
-    await client.query('ROLLBACK');
-    throw err;
-  } finally {
-    client.release();
-  }
+export async function deleteStaleGuestAccounts(inactiveDays: number): Promise<number> {
+  const res = await getPool().query(`DELETE FROM guest_users u WHERE ${STALE_GUEST_FILTER}`, [inactiveDays]);
+  return res.rowCount ?? 0;
 }
 
 // Cosmetics system queries
@@ -708,10 +638,10 @@ export async function getCosmeticById(cosmeticId: string): Promise<CosmeticItem 
   };
 }
 
-export async function purchaseCosmeticAtomic(
-  userId: number,
-  cosmeticId: string
-): Promise<{ success: boolean; newBalance?: number; errorCode?: string }> {
+export type PurchaseError = 'cosmetic_not_found' | 'already_owned' | 'insufficient_coins' | 'user_not_found';
+export type PurchaseResult = { ok: true; newBalance: number } | { ok: false; error: PurchaseError };
+
+export async function purchaseCosmeticAtomic(userId: number, cosmeticId: string): Promise<PurchaseResult> {
   const client = await getPool().connect();
   try {
     await client.query('BEGIN');
@@ -723,7 +653,7 @@ export async function purchaseCosmeticAtomic(
     const cosmeticRow = cosmeticRes.rows[0];
     if (!cosmeticRow || !cosmeticRow.available) {
       await client.query('ROLLBACK');
-      return { success: false, errorCode: 'cosmetic_not_found' };
+      return { ok: false, error: 'cosmetic_not_found' };
     }
 
     const price = Number(cosmeticRow.price);
@@ -734,23 +664,24 @@ export async function purchaseCosmeticAtomic(
     );
     if (alreadyOwned.rows.length > 0) {
       await client.query('ROLLBACK');
-      return { success: false, errorCode: 'already_owned' };
+      return { ok: false, error: 'already_owned' };
     }
 
+    // Lock the row: a bet settlement or bonus claim landing mid-purchase must not be overwritten.
     const balanceRes = await client.query<{ coin_balance: string }>(
-      `SELECT coin_balance FROM guest_users WHERE id = $1`,
+      `SELECT coin_balance FROM guest_users WHERE id = $1 FOR UPDATE`,
       [userId]
     );
     const balanceRow = balanceRes.rows[0];
     if (!balanceRow) {
       await client.query('ROLLBACK');
-      return { success: false, errorCode: 'user_not_found' };
+      return { ok: false, error: 'user_not_found' };
     }
 
     const currentBalance = Number(balanceRow.coin_balance);
     if (currentBalance < price) {
       await client.query('ROLLBACK');
-      return { success: false, errorCode: 'insufficient_coins' };
+      return { ok: false, error: 'insufficient_coins' };
     }
 
     const newBalance = currentBalance - price;
@@ -768,7 +699,7 @@ export async function purchaseCosmeticAtomic(
     );
 
     await client.query('COMMIT');
-    return { success: true, newBalance };
+    return { ok: true, newBalance };
   } catch (err) {
     await client.query('ROLLBACK');
     throw err;
