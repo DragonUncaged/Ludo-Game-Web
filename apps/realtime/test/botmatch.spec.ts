@@ -2,8 +2,9 @@ import http from 'node:http';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { Server } from '@colyseus/core';
 import { WebSocketTransport } from '@colyseus/ws-transport';
-import { Client } from 'colyseus.js';
-import type { Room } from 'colyseus.js';
+import { Client } from '@colyseus/sdk';
+import type { Room } from '@colyseus/sdk';
+import { JOIN_ERROR } from '@ludo/shared';
 
 let gameServer: Server;
 let port = 0;
@@ -12,9 +13,13 @@ beforeAll(async () => {
   process.env.LUDO_FAST = '1'; // must be set before the room module is imported
   const { LudoRoom } = await import('../src/rooms/LudoRoom.js');
   const server = http.createServer();
-  gameServer = new Server({ transport: new WebSocketTransport({ server }) });
+  gameServer = new Server({
+    transport: new WebSocketTransport({ server }),
+    greet: false,
+    gracefullyShutdown: false,
+  });
   gameServer.define('ludo', LudoRoom);
-  await new Promise<void>((resolve) => server.listen(0, resolve));
+  await gameServer.listen(0);
   port = (server.address() as { port: number }).port;
 });
 
@@ -107,7 +112,7 @@ describe('LudoRoom', () => {
 
     await expect(
       connect().joinById(room.roomId, { nickname: 'Dup', deviceToken: 'device-c' })
-    ).rejects.toMatchObject({ code: 4002 });
+    ).rejects.toMatchObject({ code: JOIN_ERROR.ALREADY_IN_ROOM });
 
     room.send('startGame');
     await new Promise((r) => setTimeout(r, 200));

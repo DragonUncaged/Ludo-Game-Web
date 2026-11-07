@@ -1,4 +1,4 @@
-import { Route, Routes } from 'react-router-dom';
+import { Route, Routes } from 'react-router';
 import HomeScreen from './screens/HomeScreen';
 import RoomScreen from './screens/RoomScreen';
 import ShopScreen from './screens/ShopScreen';

@@ -1,4 +1,4 @@
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router';
 import { useConnection } from '../store/connectionStore';
 import { useGame } from '../store/gameStore';
 import { useSettings } from '../store/settingsStore';

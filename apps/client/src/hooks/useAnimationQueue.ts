@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import type { Room } from 'colyseus.js';
+import type { Room } from '@colyseus/sdk';
 import { posToGrid } from '@ludo/engine';
 import type { PlayerColor } from '@ludo/engine';
 import type { MoveAppliedEvent } from '@ludo/shared';

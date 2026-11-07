@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import type { Room } from 'colyseus.js';
+import type { Room } from '@colyseus/sdk';
 import { useConnection } from '../store/connectionStore';
 import { useGame } from '../store/gameStore';
 import type { GameSnap } from '../store/gameStore';

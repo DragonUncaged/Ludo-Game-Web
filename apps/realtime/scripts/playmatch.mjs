@@ -1,6 +1,6 @@
 // Dev utility: plays a full match against a running realtime server and prints the result.
 // Usage: node scripts/playmatch.mjs [ws://localhost:2567]
-import { Client } from 'colyseus.js';
+import { Client } from '@colyseus/sdk';
 import { randomUUID } from 'node:crypto';
 
 const url = process.argv[2] ?? 'ws://localhost:2567';

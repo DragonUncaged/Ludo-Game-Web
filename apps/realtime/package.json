@@ -11,9 +11,9 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@colyseus/core": "^0.16.0",
-    "@colyseus/schema": "^3.0.0",
-    "@colyseus/ws-transport": "^0.16.0",
+    "@colyseus/core": "^0.18.27",
+    "@colyseus/schema": "^5.0.45",
+    "@colyseus/ws-transport": "^0.18.4",
     "@ludo/db": "workspace:*",
     "@ludo/engine": "workspace:*",
     "@ludo/shared": "workspace:*",
@@ -22,10 +22,10 @@
     "tsx": "catalog:"
   },
   "devDependencies": {
+    "@colyseus/sdk": "^0.18.9",
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
     "@types/node": "catalog:",
-    "colyseus.js": "^0.16.0",
     "typescript": "catalog:",
     "vitest": "catalog:"
   }

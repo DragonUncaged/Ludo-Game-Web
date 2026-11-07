@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
-import type { Room } from 'colyseus.js';
+import { useNavigate, useSearchParams } from 'react-router';
+import type { Room } from '@colyseus/sdk';
 import { createRoom, joinRoomByCode, mapJoinError } from '../lib/colyseus';
 import { useConnection } from '../store/connectionStore';
 import { useSettings } from '../store/settingsStore';

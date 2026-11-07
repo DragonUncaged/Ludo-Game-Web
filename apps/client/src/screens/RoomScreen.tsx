@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router';
 import { joinRoomByCode, mapJoinError, tryReconnect } from '../lib/colyseus';
 import { useConnection } from '../store/connectionStore';
 import { useGame } from '../store/gameStore';

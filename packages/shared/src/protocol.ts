@@ -75,10 +75,11 @@ export interface RankingEntry {
 export interface GameOverEvent {
   ranking: RankingEntry[];
 }
-export type JoinErrorCode = 'ROOM_FULL' | 'ROOM_STARTED' | 'ALREADY_IN_ROOM' | 'ROOM_NOT_FOUND';
-export interface JoinErrorEvent {
-  code: JoinErrorCode;
-}
+/** Codes the room rejects a join with. Colyseus reserves 4000–4010 for close codes. */
+export const JOIN_ERROR = {
+  ROOM_STARTED: 4101,
+  ALREADY_IN_ROOM: 4102,
+} as const;
 export interface TimeResultEvent {
   t0: number;
   server: number;

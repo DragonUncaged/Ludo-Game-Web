@@ -1,4 +1,3 @@
-import http from 'node:http';
 import express from 'express';
 import cors from 'cors';
 import { Server, matchMaker } from '@colyseus/core';
@@ -9,23 +8,32 @@ import { LudoRoom } from './rooms/LudoRoom.js';
 
 loadRootEnv();
 const port = Number(process.env.REALTIME_PORT ?? 2567);
-const app = express();
-app.use(cors({ origin: process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(',') : true }));
-app.use(express.json());
 
-app.get('/health', (_req, res) => res.json({ ok: true }));
+const gameServer = new Server({
+  transport: new WebSocketTransport(),
+  express: (app) => {
+    app.use(cors({ origin: process.env.CORS_ORIGIN?.split(',') ?? true }));
+    app.use(express.json());
 
-// Room lookup by join code — must live on this service (needs the local matchMaker).
-app.get('/rooms/:code', async (req, res) => {
-  const code = normalizeJoinCode(req.params.code);
-  const rooms = await matchMaker.query({ name: 'ludo' });
-  const room = rooms.find((r) => r.metadata?.joinCode === code);
-  if (!room) return res.status(404).json({ error: 'ROOM_NOT_FOUND' });
-  res.json({ roomId: room.roomId, clients: room.clients, locked: room.locked });
+    app.get('/health', (_req, res) => {
+      res.json({ ok: true });
+    });
+
+    // Join-code lookup lives here rather than in the api because it needs this process's matchMaker.
+    app.get('/rooms/:code', async (req, res) => {
+      const code = normalizeJoinCode(req.params.code);
+      const rooms = await matchMaker.query<LudoRoom>({ name: 'ludo' });
+      const room = rooms.find((r) => r.metadata?.joinCode === code);
+      if (!room) {
+        res.status(404).json({ error: 'ROOM_NOT_FOUND' });
+        return;
+      }
+      res.json({ roomId: room.roomId, clients: room.clients, locked: room.locked });
+    });
+  },
 });
 
-const server = http.createServer(app);
-const gameServer = new Server({ transport: new WebSocketTransport({ server }) });
 gameServer.define('ludo', LudoRoom);
 
-server.listen(port, () => console.log(`[realtime] listening on :${port}`));
+await gameServer.listen(port);
+console.log(`[realtime] listening on :${port}`);

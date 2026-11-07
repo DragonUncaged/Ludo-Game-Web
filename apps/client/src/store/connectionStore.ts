@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { Room } from 'colyseus.js';
+import type { Room } from '@colyseus/sdk';
 
 interface ConnectionStore {
   room: Room | null;

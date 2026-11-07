@@ -1,6 +1,6 @@
-import { Client } from 'colyseus.js';
-import type { Room } from 'colyseus.js';
-import { normalizeJoinCode } from '@ludo/shared';
+import { Client } from '@colyseus/sdk';
+import type { Room } from '@colyseus/sdk';
+import { JOIN_ERROR, normalizeJoinCode } from '@ludo/shared';
 import type { DiceMode } from '@ludo/shared';
 
 const WS_URL: string = import.meta.env.VITE_WS_URL ?? 'ws://localhost:2567';
@@ -63,8 +63,8 @@ export function clearReconnectToken(): void {
 
 export function mapJoinError(err: unknown): string {
   const e = err as { code?: number; message?: string };
-  if (e?.code === 4001) return 'That game has already started.';
-  if (e?.code === 4002) return 'You are already in this room (same device).';
+  if (e?.code === JOIN_ERROR.ROOM_STARTED) return 'That game has already started.';
+  if (e?.code === JOIN_ERROR.ALREADY_IN_ROOM) return 'You are already in this room (same device).';
   if (e?.message === 'ROOM_NOT_FOUND') return 'No room found with that code.';
   if (/full/i.test(e?.message ?? '')) return 'That room is full.';
   return 'Could not join the room. Check the code and try again.';

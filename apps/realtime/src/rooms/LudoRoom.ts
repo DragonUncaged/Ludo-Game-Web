@@ -13,7 +13,7 @@ import {
 } from '@ludo/engine';
 import type { DiceRoller, GameState, Move, PlayerColor } from '@ludo/engine';
 import { serializeGame } from '@ludo/engine';
-import { computeSettlement, generateJoinCode } from '@ludo/shared';
+import { JOIN_ERROR, computeSettlement, generateJoinCode } from '@ludo/shared';
 import type { JoinOptions, MoveIntent, SetOptionsIntent, TimeIntent } from '@ludo/shared';
 import {
   abandonMatch,
@@ -49,8 +49,9 @@ function pickColors(seats: number): PlayerColor[] {
   return [...TURN_ORDER];
 }
 
-export class LudoRoom extends Room<LudoState> {
+export class LudoRoom extends Room<{ state: LudoState; metadata: { joinCode: string } }> {
   maxClients = 4;
+  state = new LudoState();
 
   // Server-private authority — never synced.
   private game!: GameState;
@@ -70,8 +71,7 @@ export class LudoRoom extends Room<LudoState> {
     .filter((n) => n >= 1 && n <= 6);
   private botRng = () => Math.random();
 
-  onCreate(options: JoinOptions) {
-    this.setState(new LudoState());
+  async onCreate(options: JoinOptions) {
     const code = generateJoinCode((lo, hi) => randomInt(lo, hi));
     this.state.joinCode = code;
     if (options.create) {
@@ -79,8 +79,6 @@ export class LudoRoom extends Room<LudoState> {
       this.state.turnSeconds = Math.min(60, Math.max(5, options.create.turnSeconds || 20));
       this.maxClients = Math.min(4, Math.max(2, options.create.seats || 4));
     }
-    this.setMetadata({ joinCode: code });
-
     this.onMessage('roll', (client) => {
       const seat = this.seatOf(client.sessionId);
       if (!this.isCurrentHuman(seat) || this.state.turnPhase !== 'awaitRoll') return;
@@ -150,14 +148,16 @@ export class LudoRoom extends Room<LudoState> {
 
     // Watchdog: nothing may stall the room.
     this.clock.setInterval(() => this.watchdog(), 5000);
+
+    await this.setMetadata({ joinCode: code });
   }
 
   async onJoin(client: Client, options: JoinOptions) {
-    if (this.state.roomPhase !== 'waiting') throw new ServerError(4001, 'ROOM_STARTED');
+    if (this.state.roomPhase !== 'waiting') throw new ServerError(JOIN_ERROR.ROOM_STARTED, 'ROOM_STARTED');
     const token = options?.deviceToken ?? '';
     if (token && process.env.ALLOW_DUP_DEVICE !== '1') {
       for (const t of this.deviceTokens.values()) {
-        if (t === token) throw new ServerError(4002, 'ALREADY_IN_ROOM');
+        if (t === token) throw new ServerError(JOIN_ERROR.ALREADY_IN_ROOM, 'ALREADY_IN_ROOM');
       }
     }
     this.deviceTokens.set(client.sessionId, token);
@@ -187,7 +187,21 @@ export class LudoRoom extends Room<LudoState> {
     if (!this.state.hostSessionId) this.state.hostSessionId = client.sessionId;
   }
 
-  async onLeave(client: Client, consented: boolean) {
+  /** Unexpected disconnect. Mid-match the seat is held for a while; otherwise onLeave runs next. */
+  onDrop(client: Client) {
+    const player = this.state.players[this.seatOf(client.sessionId)];
+    if (!player || this.state.roomPhase !== 'playing') return;
+    player.connected = false;
+    // On timeout Colyseus calls onLeave, which hands the seat to a bot.
+    this.allowReconnection(client, T.reconnectSec);
+  }
+
+  onReconnect(client: Client) {
+    const player = this.state.players[this.seatOf(client.sessionId)];
+    if (player) player.connected = true;
+  }
+
+  onLeave(client: Client) {
     const seat = this.seatOf(client.sessionId);
     if (seat < 0) return;
     const player = this.state.players[seat]!;
@@ -203,27 +217,14 @@ export class LudoRoom extends Room<LudoState> {
     }
     if (this.state.roomPhase === 'ended') return;
 
+    // Gone for good mid-match (quit, or never came back). A bot plays the seat out.
+    // Walking out of a wagered match forfeits the stake, otherwise quitting would
+    // be a free way out of a losing bet.
     player.connected = false;
-    if (!consented) {
-      try {
-        await this.allowReconnection(client, T.reconnectSec);
-        player.connected = true;
-        return;
-      } catch {
-        /* timed out — fall through to botify */
-      }
-    }
-    // Walking out of a wagered match forfeits the stake. Without this the
-    // quitter would simply stop counting as a bettor at settlement time, which
-    // is a free escape hatch for whoever is losing.
     if (player.staked) player.forfeitedBet = true;
     player.isBot = true;
     player.nickname = `${player.nickname} 🤖`;
-    if (
-      this.state.roomPhase === 'playing' &&
-      this.state.currentPlayer === seat &&
-      this.state.turnPhase !== 'animating'
-    ) {
+    if (this.state.currentPlayer === seat && this.state.turnPhase !== 'animating') {
       this.scheduleBotAction(this.turnNonce);
     }
   }
@@ -315,7 +316,7 @@ export class LudoRoom extends Room<LudoState> {
     this.rollsSinceSix = colors.map(() => 0);
     this.capturesBySeat = colors.map(() => 0);
     this.state.roomPhase = 'playing';
-    this.lock();
+    void this.lock();
     this.syncSchema();
 
     void safeWrite('insert match', async () => {
