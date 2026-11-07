@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router';
-import { useSettings } from '../store/settingsStore';
 import { API_URL } from '../lib/api';
 
 interface LeaderboardEntry {
@@ -15,8 +14,6 @@ interface LeaderboardEntry {
 
 export default function LeaderboardScreen() {
   const navigate = useNavigate();
-  const settings = useSettings();
-  const dark = settings.theme === 'dark';
   const [entries, setEntries] = useState<LeaderboardEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -87,8 +84,7 @@ export default function LeaderboardScreen() {
             {entries.map((entry, idx) => (
               <div
                 key={entry.id}
-                className="clay-pressed flex items-center gap-3 rounded-2xl px-4 py-3"
-                style={{ background: dark ? '#3c3959' : '#f4ede3' }}
+                className="clay-pressed flex items-center gap-3 rounded-2xl bg-seg-light px-4 py-3"
               >
                 <span className="w-8 text-lg font-extrabold text-center">
                   {MEDALS[idx] ?? `#${idx + 1}`}
@@ -98,7 +94,7 @@ export default function LeaderboardScreen() {
                     {entry.nickname}
                     {entry.hasEquippedCosmetic && <span>✨</span>}
                   </div>
-                  <div className="text-xs opacity-60 flex gap-4 flex-wrap">
+                  <div className="flex flex-wrap gap-4 text-xs text-ink-light opacity-60">
                     <span>🏆 {entry.wins}W</span>
                     <span>🎮 {entry.gamesPlayed}G</span>
                     <span>💰 {entry.coinBalance}</span>
