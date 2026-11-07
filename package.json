@@ -2,7 +2,11 @@
   "name": "ludo-royale",
   "private": true,
   "version": "0.1.0",
-  "packageManager": "pnpm@11.5.0",
+  "type": "module",
+  "packageManager": "pnpm@12.18.0",
+  "engines": {
+    "node": ">=26"
+  },
   "scripts": {
     "dev": "pnpm -r --parallel --stream dev",
     "build": "pnpm -r build",
