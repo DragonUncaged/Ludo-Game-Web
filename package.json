@@ -11,6 +11,13 @@
     "dev": "pnpm -r --parallel --stream dev",
     "build": "pnpm -r build",
     "test": "pnpm -r test",
-    "typecheck": "pnpm -r typecheck"
+    "typecheck": "pnpm -r typecheck",
+    "lint": "oxlint",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
+  },
+  "devDependencies": {
+    "oxlint": "^1.92.0",
+    "prettier": "^3.9.10"
   }
 }

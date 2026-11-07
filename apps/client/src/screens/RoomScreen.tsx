@@ -12,19 +12,20 @@ import SummaryScreen from './SummaryScreen';
 export default function RoomScreen() {
   const { code } = useParams<{ code: string }>();
   const navigate = useNavigate();
-  const connection = useConnection();
-  const settings = useSettings();
+  const room = useConnection((s) => s.room);
+  const setRoom = useConnection((s) => s.setRoom);
+  const { nickname, deviceToken, theme } = useSettings();
   const { snap, ranking, reset } = useGame();
   const [error, setError] = useState<string | null>(null);
   const joining = useRef(false);
-  const dark = settings.theme === 'dark';
+  const dark = theme === 'dark';
 
-  useRoomEvents(connection.room);
+  useRoomEvents(room);
 
-  // Direct URL visit / refresh: try reconnect first, then a fresh join by code.
+  // Opened by URL or refreshed: try to reclaim the old seat, else join fresh by code.
   useEffect(() => {
-    if (connection.room || joining.current || !code) return;
-    if (!settings.nickname.trim()) {
+    if (room || joining.current || !code) return;
+    if (!nickname.trim()) {
       navigate(`/?join=${code}`);
       return;
     }
@@ -32,25 +33,16 @@ export default function RoomScreen() {
     (async () => {
       try {
         const reconnected = await tryReconnect();
-        if (reconnected) {
-          connection.setRoom(reconnected);
-          return;
-        }
-        const room = await joinRoomByCode(code, {
-          nickname: settings.nickname.trim(),
-          deviceToken: settings.deviceToken,
-        });
-        connection.setRoom(room);
+        setRoom(reconnected ?? (await joinRoomByCode(code, { nickname: nickname.trim(), deviceToken })));
       } catch (err) {
         setError(mapJoinError(err));
       } finally {
         joining.current = false;
       }
     })();
-  }, [code, connection.room]);
+  }, [code, room, nickname, deviceToken, navigate, setRoom]);
 
-  // Clear game store when leaving the room screen entirely.
-  useEffect(() => () => reset(), []);
+  useEffect(() => reset, [reset]);
 
   const phase = ranking ? 'ended' : snap?.roomPhase;
 

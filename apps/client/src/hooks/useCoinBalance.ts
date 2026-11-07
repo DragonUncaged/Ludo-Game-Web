@@ -12,16 +12,12 @@ export interface CoinBalance {
  * Polls the wallet. A 404 means the guest row doesn't exist yet, which reads as 0.
  * On a network error the last known balance is kept rather than flashing to 0.
  */
-export function useCoinBalance(deviceToken: string | null, refreshMs = 30_000): CoinBalance {
+export function useCoinBalance(deviceToken: string, refreshMs = 30_000): CoinBalance {
   const [balance, setBalance] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const refetch = useCallback(async () => {
-    if (!deviceToken) {
-      setLoading(false);
-      return;
-    }
     try {
       const res = await fetch(`${API_URL}/coins/${deviceToken}/balance`);
       if (res.status === 404) {

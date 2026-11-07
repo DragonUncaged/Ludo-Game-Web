@@ -29,7 +29,7 @@ interface BonusResponse {
  * the payout; this only mirrors them and ticks the countdown down locally so the
  * button unlocks without a refresh.
  */
-export function useDailyBonus(deviceToken: string | null, onClaimed?: () => void): DailyBonusState {
+export function useDailyBonus(deviceToken: string, onClaimed?: () => void): DailyBonusState {
   const [status, setStatus] = useState<BonusResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [claiming, setClaiming] = useState(false);
@@ -37,17 +37,13 @@ export function useDailyBonus(deviceToken: string | null, onClaimed?: () => void
   const [error, setError] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
-    if (!deviceToken) {
-      setLoading(false);
-      return;
-    }
     try {
       const res = await fetch(`${API_URL}/coins/${deviceToken}/bonus`);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       setStatus((await res.json()) as BonusResponse);
       setError(null);
     } catch {
-      // A missing account (never played) simply has no bonus to show.
+      // No guest row yet, so no bonus to show.
       setStatus(null);
     } finally {
       setLoading(false);
@@ -58,21 +54,23 @@ export function useDailyBonus(deviceToken: string | null, onClaimed?: () => void
     void refresh();
   }, [refresh]);
 
-  // Local countdown so the button flips to claimable on its own.
+  // Tick the cooldown locally and re-ask the server once it runs out.
+  const coolingDown = status !== null && !status.claimable;
   useEffect(() => {
-    if (!status || status.claimable) return;
+    if (!coolingDown) return;
     const id = setInterval(() => {
-      setStatus((s) => (s && !s.claimable ? { ...s, msRemaining: Math.max(0, s.msRemaining - 1000) } : s));
+      setStatus((s) => (s ? { ...s, msRemaining: Math.max(0, s.msRemaining - 1000) } : s));
     }, 1000);
     return () => clearInterval(id);
-  }, [status?.claimable]);
+  }, [coolingDown]);
 
+  const cooldownOver = coolingDown && status.msRemaining <= 0;
   useEffect(() => {
-    if (status && !status.claimable && status.msRemaining <= 0) void refresh();
-  }, [status?.msRemaining, status?.claimable, refresh]);
+    if (cooldownOver) void refresh();
+  }, [cooldownOver, refresh]);
 
   const claim = useCallback(async () => {
-    if (!deviceToken || claiming) return;
+    if (claiming) return;
     setClaiming(true);
     setError(null);
     try {

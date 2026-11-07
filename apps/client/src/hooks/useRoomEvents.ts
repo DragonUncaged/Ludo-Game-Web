@@ -1,29 +1,26 @@
 import { useEffect } from 'react';
 import type { Room } from '@colyseus/sdk';
+import type { DiceRolledEvent, GameOverEvent, TimeResultEvent } from '@ludo/shared';
 import { useConnection } from '../store/connectionStore';
 import { useGame } from '../store/gameStore';
 import type { GameSnap } from '../store/gameStore';
 import { saveReconnectToken } from '../lib/colyseus';
 import { sfx } from '../lib/sfx';
-import type { DiceRolledEvent, GameOverEvent, TimeResultEvent } from '@ludo/shared';
 
-function toArray(x: unknown): number[] {
-  return Array.from(x as Iterable<number>).map(Number);
-}
-
+// The decoded schema has no static type on the client, hence the `any`s.
 function mirror(state: any): GameSnap {
   return {
     roomPhase: state.roomPhase,
     joinCode: state.joinCode,
     hostSessionId: state.hostSessionId,
-    players: Array.from(state.players as Iterable<any>).map((p: any) => ({
+    players: Array.from(state.players as Iterable<any>).map((p) => ({
       sessionId: p.sessionId,
       nickname: p.nickname,
       color: p.color,
       isBot: p.isBot,
       connected: p.connected,
       finishedRank: p.finishedRank,
-      tokens: toArray(p.tokens),
+      tokens: Array.from(p.tokens as Iterable<number>, Number),
       coinBalance: p.coinBalance,
       acceptedBet: p.acceptedBet,
       staked: p.staked,
@@ -41,81 +38,66 @@ function mirror(state: any): GameSnap {
   };
 }
 
-/**
- * Wires a joined room into the stores. Every handler is guarded by an `active`
- * flag: StrictMode/HMR re-runs register fresh handlers and deactivate the old
- * ones, so events are processed exactly once. `seq` dedupe is belt-and-braces
- * on top of that.
- */
+/** Mirrors a joined room into the stores. Listeners are unbound on cleanup, so StrictMode's double mount is harmless. */
 export function useRoomEvents(room: Room | null): void {
-  const game = useGame;
-  const connection = useConnection;
-
   useEffect(() => {
     if (!room) return;
-    let active = true;
+    let active = true; // guards the timers below, which can outlive the listeners
     let lastDiceSeq = 0;
+    const game = () => useGame.getState();
 
-    game.getState().setMySessionId(room.sessionId);
+    game().setMySessionId(room.sessionId);
     saveReconnectToken(room);
-    if (import.meta.env.DEV) (window as unknown as { __room?: Room }).__room = room;
 
-    // After a reconnect, room.state may not be hydrated yet — guard and let
-    // onStateChange deliver the first full snapshot.
-    const trySnap = (state: any) => {
-      if (active && state?.players) game.getState().applySnap(mirror(state));
+    // Right after a reconnect room.state can still be empty; the first onStateChange fills it in.
+    const onState = (state: { players?: unknown }) => {
+      if (state?.players) game().applySnap(mirror(state));
     };
-    trySnap(room.state);
-    room.onStateChange(trySnap);
+    onState(room.state);
+    room.onStateChange(onState);
 
-    room.onMessage<DiceRolledEvent>('diceRolled', (msg) => {
-      if (!active) return;
-      if (msg.seq && msg.seq <= lastDiceSeq) return;
-      if (msg.seq) lastDiceSeq = msg.seq;
-      const g = game.getState();
-      g.setRolling(true);
-      sfx.roll();
-      // tumble briefly, then land on the value and reveal legal tokens
-      setTimeout(() => {
-        if (!active) return;
-        const gg = game.getState();
-        gg.setShownDice(msg.value);
-        gg.setRolling(false);
-        const seat = gg.snap?.players.findIndex((p) => p.sessionId === room.sessionId) ?? -1;
-        // timeout auto-rolls play themselves — don't tease a choice that isn't there
-        gg.setLegalTokens(
-          msg.seat === seat && !msg.autoPass && !msg.forfeit && !msg.auto ? msg.legalTokens : []
-        );
-      }, 420);
-    });
-    room.onMessage('moveApplied', () => {
-      if (active) game.getState().setLegalTokens([]);
-    });
-    room.onMessage('turnChanged', () => {
-      if (active) game.getState().setLegalTokens([]);
-    });
-    room.onMessage('playerFinished', () => {});
-    room.onMessage<GameOverEvent>('gameOver', (msg) => {
-      if (!active) return;
-      sfx.win();
-      // let the last move/capture animation land before switching to the summary
-      setTimeout(() => {
-        if (active) game.getState().setRanking(msg.ranking);
-      }, 1200);
-    });
-    room.onMessage<TimeResultEvent>('timeResult', ({ t0, server }) => {
-      if (!active) return;
-      const now = Date.now();
-      game.getState().setClockOffset(server - (t0 + now) / 2);
-    });
+    const off = [
+      room.onMessage<DiceRolledEvent>('diceRolled', (msg) => {
+        if (msg.seq && msg.seq <= lastDiceSeq) return;
+        if (msg.seq) lastDiceSeq = msg.seq;
+        game().setRolling(true);
+        sfx.roll();
+        // Let the dice tumble a moment before showing the value and the movable tokens.
+        setTimeout(() => {
+          if (!active) return;
+          const g = game();
+          g.setShownDice(msg.value);
+          g.setRolling(false);
+          const mine = g.snap?.players.findIndex((p) => p.sessionId === room.sessionId) ?? -1;
+          // An auto-roll from the turn timer also moves for you, so there's nothing to pick.
+          const choosable = msg.seat === mine && !msg.autoPass && !msg.forfeit && !msg.auto;
+          g.setLegalTokens(choosable ? msg.legalTokens : []);
+        }, 420);
+      }),
+      room.onMessage('moveApplied', () => game().setLegalTokens([])),
+      room.onMessage('turnChanged', () => game().setLegalTokens([])),
+      room.onMessage('playerFinished', () => {}),
+      room.onMessage<GameOverEvent>('gameOver', (msg) => {
+        sfx.win();
+        // Give the final move's animation time to land before the summary takes over.
+        setTimeout(() => {
+          if (active) game().setRanking(msg.ranking);
+        }, 1200);
+      }),
+      room.onMessage<TimeResultEvent>('timeResult', ({ t0, server }) => {
+        game().setClockOffset(server - (t0 + Date.now()) / 2);
+      }),
+    ];
     room.send('time', { t0: Date.now() });
 
-    room.onLeave(() => {
-      if (active) connection.getState().setRoom(null);
-    });
+    const onLeave = () => useConnection.getState().setRoom(null);
+    room.onLeave(onLeave);
 
     return () => {
       active = false;
+      off.forEach((unbind) => unbind());
+      room.onStateChange.remove(onState);
+      room.onLeave.remove(onLeave);
     };
   }, [room]);
 }

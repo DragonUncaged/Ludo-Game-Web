@@ -30,10 +30,10 @@ export default function GameScreen() {
     if (!room) return;
     let active = true;
     let lastSeq = 0;
-    room.onMessage<{ seq?: number; seat: number; autoPass: boolean; forfeit: boolean }>(
+    const unbind = room.onMessage<{ seq?: number; seat: number; autoPass: boolean; forfeit: boolean }>(
       'diceRolled',
       ({ seq, seat: s, autoPass, forfeit }) => {
-        if (!active || (!autoPass && !forfeit)) return;
+        if (!autoPass && !forfeit) return;
         if (seq && seq <= lastSeq) return;
         if (seq) lastSeq = seq;
         const who = useGame.getState().snap?.players[s]?.nickname ?? '…';
@@ -43,6 +43,7 @@ export default function GameScreen() {
     );
     return () => {
       active = false;
+      unbind();
     };
   }, [room]);
 
@@ -51,8 +52,8 @@ export default function GameScreen() {
     if (!room) return;
     let active = true;
     let lastSeq = 0;
-    room.onMessage<{ seq?: number; seat: number; auto?: boolean }>('moveApplied', (msg) => {
-      if (!active || !msg.auto) return;
+    const unbind = room.onMessage<{ seq?: number; seat: number; auto?: boolean }>('moveApplied', (msg) => {
+      if (!msg.auto) return;
       if (msg.seq && msg.seq <= lastSeq) return;
       if (msg.seq) lastSeq = msg.seq;
       const g = useGame.getState();
@@ -64,6 +65,7 @@ export default function GameScreen() {
     });
     return () => {
       active = false;
+      unbind();
     };
   }, [room]);
 

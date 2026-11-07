@@ -164,9 +164,7 @@ describe('home column and finishing', () => {
     expect(res.state.phase).toBe('gameOver');
     expect(res.state.players[0]!.finishedRank).toBe(1);
     expect(res.state.players[1]!.finishedRank).toBe(2);
-    const over = res.events.find((e) => e.type === 'gameOver');
-    expect(over).toBeDefined();
-    if (over?.type === 'gameOver') expect(over.ranking).toEqual([0, 1]);
+    expect(res.events.find((e) => e.type === 'gameOver')).toEqual({ type: 'gameOver', ranking: [0, 1] });
   });
 
   it('no extra roll when the player finishes on a 6', () => {

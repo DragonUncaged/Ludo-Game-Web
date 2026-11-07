@@ -22,13 +22,14 @@ export default function LobbyView() {
   useEffect(() => {
     if (!room) return;
     let active = true;
-    room.onMessage<{ message?: string }>('error', (msg) => {
-      if (!active || !msg?.message) return;
+    const unbind = room.onMessage<{ message?: string }>('error', (msg) => {
+      if (!msg?.message) return;
       setNotice(msg.message);
       setTimeout(() => active && setNotice(null), 3000);
     });
     return () => {
       active = false;
+      unbind();
     };
   }, [room]);
 

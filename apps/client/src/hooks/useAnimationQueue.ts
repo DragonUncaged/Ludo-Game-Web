@@ -23,8 +23,6 @@ export function useAnimationQueue(room: Room | null): void {
 
   useEffect(() => {
     if (!room) return;
-    let active = true;
-
     const g = () => useGame.getState();
 
     const runJob = async (msg: MoveAppliedEvent): Promise<void> => {
@@ -79,10 +77,8 @@ export function useAnimationQueue(room: Room | null): void {
       running.current = false;
     };
 
-    room.onMessage<MoveAppliedEvent>('moveApplied', (msg) => {
-      if (!active) return;
-      // StrictMode/HMR can leave stale handlers registered — seq dedupe makes
-      // sure each move animates exactly once.
+    const unbind = room.onMessage<MoveAppliedEvent>('moveApplied', (msg) => {
+      // A move can be delivered twice around a reconnect; animate it once.
       if (msg.seq && msg.seq <= lastSeq.current) return;
       if (msg.seq) lastSeq.current = msg.seq;
       // Pin positions synchronously (before the state patch renders) to avoid teleports.
@@ -105,7 +101,7 @@ export function useAnimationQueue(room: Room | null): void {
     });
 
     return () => {
-      active = false;
+      unbind();
       queue.current = [];
       g().clearOverrides();
     };

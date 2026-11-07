@@ -37,30 +37,31 @@ export default function HomeScreen() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Open the wallet as soon as there is a name to open it under. The guest row
-  // (and the 100 coins it is created with) used to appear only when a match
-  // started, so a new player saw an empty balance and no bonus until then.
+  // Create the guest row (and its starting 100 coins) as soon as there's a name,
+  // so the wallet and bonus show up before the first match.
   const registeredNick = useRef<string | null>(null);
+  const { deviceToken } = settings;
+  const nickname = settings.nickname.trim();
+  const refreshBonus = bonus.refresh;
   useEffect(() => {
-    const nickname = settings.nickname.trim();
-    if (!settings.deviceToken || !nickname || registeredNick.current === nickname) return;
+    if (!nickname || registeredNick.current === nickname) return;
     const id = setTimeout(async () => {
       registeredNick.current = nickname;
       try {
         const res = await fetch(`${API_URL}/guests`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ deviceToken: settings.deviceToken, nickname }),
+          body: JSON.stringify({ deviceToken, nickname }),
         });
         if (!res.ok) return;
         await refetchBalance();
-        await bonus.refresh();
+        await refreshBonus();
       } catch {
-        /* the home screen works fine without a wallet */
+        // No API? The home screen works without a wallet.
       }
     }, 800);
     return () => clearTimeout(id);
-  }, [settings.deviceToken, settings.nickname]);
+  }, [deviceToken, nickname, refetchBalance, refreshBonus]);
 
   const identity = () => ({
     nickname: settings.nickname.trim() || 'Player',
