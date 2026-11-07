@@ -25,12 +25,12 @@ apps/client   (Vite+React SPA, static)  ──HTTPS──▶  apps/api      (Exp
 
 ## State ownership
 
-| State | Lives in | Why |
-|---|---|---|
-| Live match (tokens, turn, dice, timers) | Realtime room memory | Hot path; no DB round-trip per roll |
-| Synced view of match | Colyseus schema → clients | Auto-delta sync, late-join/reconnect hydration |
-| Guests, matches, results, stats | Neon Postgres | Durable, relational, transactional |
-| Crash-recovery snapshot | `matches.snapshot` JSONB | Fire-and-forget update per move |
+| State                                   | Lives in                  | Why                                            |
+| --------------------------------------- | ------------------------- | ---------------------------------------------- |
+| Live match (tokens, turn, dice, timers) | Realtime room memory      | Hot path; no DB round-trip per roll            |
+| Synced view of match                    | Colyseus schema → clients | Auto-delta sync, late-join/reconnect hydration |
+| Guests, matches, results, stats         | Neon Postgres             | Durable, relational, transactional             |
+| Crash-recovery snapshot                 | `matches.snapshot` JSONB  | Fire-and-forget update per move                |
 
 ## Deployment
 

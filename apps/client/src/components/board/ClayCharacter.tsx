@@ -43,7 +43,13 @@ export const ClayCharacter = memo(function ClayCharacter({ color, mode, bob = fa
       {/* ground shadow */}
       <div
         className="absolute left-1/2 -translate-x-1/2 rounded-full"
-        style={{ bottom: '2%', width: '46%', height: '8%', background: 'rgba(30,20,40,.24)', filter: 'blur(1px)' }}
+        style={{
+          bottom: '2%',
+          width: '46%',
+          height: '8%',
+          background: 'rgba(30,20,40,.24)',
+          filter: 'blur(1px)',
+        }}
       />
       <div
         className="absolute left-1/2 -translate-x-1/2"
@@ -56,8 +62,28 @@ export const ClayCharacter = memo(function ClayCharacter({ color, mode, bob = fa
         }}
       >
         {/* feet */}
-        <div className="absolute bottom-0" style={{ left: '24%', width: '20%', height: '15%', borderRadius: '50% 50% 45% 45%', background: dark, boxShadow: 'inset -2px -2px 4px rgba(0,0,0,.25)' }} />
-        <div className="absolute bottom-0" style={{ right: '24%', width: '20%', height: '15%', borderRadius: '50% 50% 45% 45%', background: dark, boxShadow: 'inset -2px -2px 4px rgba(0,0,0,.25)' }} />
+        <div
+          className="absolute bottom-0"
+          style={{
+            left: '24%',
+            width: '20%',
+            height: '15%',
+            borderRadius: '50% 50% 45% 45%',
+            background: dark,
+            boxShadow: 'inset -2px -2px 4px rgba(0,0,0,.25)',
+          }}
+        />
+        <div
+          className="absolute bottom-0"
+          style={{
+            right: '24%',
+            width: '20%',
+            height: '15%',
+            borderRadius: '50% 50% 45% 45%',
+            background: dark,
+            boxShadow: 'inset -2px -2px 4px rgba(0,0,0,.25)',
+          }}
+        />
         {/* body */}
         <div
           className="absolute"
@@ -72,19 +98,73 @@ export const ClayCharacter = memo(function ClayCharacter({ color, mode, bob = fa
           }}
         >
           {/* sheen */}
-          <div className="absolute rounded-full" style={{ top: '8%', left: '14%', width: '34%', height: '20%', background: light, opacity: 0.55, filter: 'blur(1px)', transform: 'rotate(-18deg)' }} />
+          <div
+            className="absolute rounded-full"
+            style={{
+              top: '8%',
+              left: '14%',
+              width: '34%',
+              height: '20%',
+              background: light,
+              opacity: 0.55,
+              filter: 'blur(1px)',
+              transform: 'rotate(-18deg)',
+            }}
+          />
           {/* eyes */}
-          <div className="absolute flex items-center justify-end rounded-full" style={{ top: '30%', left: '20%', width: '23%', aspectRatio: '1', background: '#fff', boxShadow: 'inset -2px -2px 3px rgba(0,0,0,.14)' }}>
-            <div className="rounded-full" style={{ width: '52%', aspectRatio: '1', marginRight: '14%', background: '#33313f' }} />
+          <div
+            className="absolute flex items-center justify-end rounded-full"
+            style={{
+              top: '30%',
+              left: '20%',
+              width: '23%',
+              aspectRatio: '1',
+              background: '#fff',
+              boxShadow: 'inset -2px -2px 3px rgba(0,0,0,.14)',
+            }}
+          >
+            <div
+              className="rounded-full"
+              style={{ width: '52%', aspectRatio: '1', marginRight: '14%', background: '#33313f' }}
+            />
           </div>
-          <div className="absolute flex items-center justify-start rounded-full" style={{ top: '30%', right: '20%', width: '23%', aspectRatio: '1', background: '#fff', boxShadow: 'inset -2px -2px 3px rgba(0,0,0,.14)' }}>
-            <div className="rounded-full" style={{ width: '52%', aspectRatio: '1', marginLeft: '14%', background: '#33313f' }} />
+          <div
+            className="absolute flex items-center justify-start rounded-full"
+            style={{
+              top: '30%',
+              right: '20%',
+              width: '23%',
+              aspectRatio: '1',
+              background: '#fff',
+              boxShadow: 'inset -2px -2px 3px rgba(0,0,0,.14)',
+            }}
+          >
+            <div
+              className="rounded-full"
+              style={{ width: '52%', aspectRatio: '1', marginLeft: '14%', background: '#33313f' }}
+            />
           </div>
           {/* cheeks */}
-          <div className="absolute rounded-full" style={{ top: '60%', left: '18%', width: '16%', height: '9%', background: dark, opacity: 0.5 }} />
-          <div className="absolute rounded-full" style={{ top: '60%', right: '18%', width: '16%', height: '9%', background: dark, opacity: 0.5 }} />
+          <div
+            className="absolute rounded-full"
+            style={{ top: '60%', left: '18%', width: '16%', height: '9%', background: dark, opacity: 0.5 }}
+          />
+          <div
+            className="absolute rounded-full"
+            style={{ top: '60%', right: '18%', width: '16%', height: '9%', background: dark, opacity: 0.5 }}
+          />
           {/* mouth */}
-          <div className="absolute left-1/2 -translate-x-1/2" style={{ top: '64%', width: '30%', height: '16%', borderRadius: '0 0 60px 60px', background: '#33313f', opacity: 0.7 }} />
+          <div
+            className="absolute left-1/2 -translate-x-1/2"
+            style={{
+              top: '64%',
+              width: '30%',
+              height: '16%',
+              borderRadius: '0 0 60px 60px',
+              background: '#33313f',
+              opacity: 0.7,
+            }}
+          />
         </div>
       </div>
     </div>

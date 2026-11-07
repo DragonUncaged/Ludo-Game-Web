@@ -52,9 +52,7 @@ export default function ShopScreen() {
           ),
         ]);
         const ownedIds = new Set(owned.owned.map((c) => c.id));
-        const equippedIds = new Set(
-          Object.values(equipped.equipped).flatMap((c) => (c ? [c.id] : []))
-        );
+        const equippedIds = new Set(Object.values(equipped.equipped).flatMap((c) => (c ? [c.id] : [])));
         setCoinBalance(wallet.balance);
         setCosmetics(
           shop.cosmetics.map((c) => ({ ...c, owned: ownedIds.has(c.id), equipped: equippedIds.has(c.id) }))
@@ -108,9 +106,7 @@ export default function ShopScreen() {
       }
       setCosmetics((list) => {
         const category = list.find((c) => c.id === cosmeticId)?.category;
-        return list.map((c) =>
-          c.category === category ? { ...c, equipped: c.id === cosmeticId } : c
-        );
+        return list.map((c) => (c.category === category ? { ...c, equipped: c.id === cosmeticId } : c));
       });
       setError(null);
     } catch {
@@ -135,11 +131,16 @@ export default function ShopScreen() {
 
   const getCategoryIcon = (cat: CosmeticCategory) => {
     switch (cat) {
-      case 'character': return '👤';
-      case 'dice': return '🎲';
-      case 'board': return '🎯';
-      case 'emote': return '😊';
-      default: return '✨';
+      case 'character':
+        return '👤';
+      case 'dice':
+        return '🎲';
+      case 'board':
+        return '🎯';
+      case 'emote':
+        return '😊';
+      default:
+        return '✨';
     }
   };
 
@@ -150,8 +151,14 @@ export default function ShopScreen() {
       className="relative flex min-h-screen flex-col items-center overflow-hidden px-5 py-10"
       style={{ background: 'linear-gradient(160deg,#ffe9f0,#e9f1ff,#eafff2)' }}
     >
-      <div className="pointer-events-none absolute -left-20 -top-28 h-[380px] w-[380px] rounded-full opacity-60 blur-[60px]" style={{ background: '#ffc7d9', animation: 'drift-a 14s ease-in-out infinite' }} />
-      <div className="pointer-events-none absolute -bottom-32 -right-24 h-[420px] w-[420px] rounded-full opacity-55 blur-[70px]" style={{ background: '#bfe0ff', animation: 'drift-b 17s ease-in-out infinite' }} />
+      <div
+        className="pointer-events-none absolute -left-20 -top-28 h-[380px] w-[380px] rounded-full opacity-60 blur-[60px]"
+        style={{ background: '#ffc7d9', animation: 'drift-a 14s ease-in-out infinite' }}
+      />
+      <div
+        className="pointer-events-none absolute -bottom-32 -right-24 h-[420px] w-[420px] rounded-full opacity-55 blur-[70px]"
+        style={{ background: '#bfe0ff', animation: 'drift-b 17s ease-in-out infinite' }}
+      />
 
       <div className="relative z-10 w-full max-w-4xl">
         {/* Header */}
@@ -223,7 +230,9 @@ export default function ShopScreen() {
 
                 {/* Name & Rarity */}
                 <h3 className="font-display text-lg font-bold text-ink-light">{cosmetic.name}</h3>
-                <p className={`text-xs ${rarityColor(cosmetic.rarity)} mb-2`}>{cosmetic.rarity.toUpperCase()}</p>
+                <p className={`text-xs ${rarityColor(cosmetic.rarity)} mb-2`}>
+                  {cosmetic.rarity.toUpperCase()}
+                </p>
 
                 {/* Description */}
                 <p className="mb-3 text-xs font-bold text-ink-light opacity-70">{cosmetic.description}</p>
@@ -245,11 +254,7 @@ export default function ShopScreen() {
                   {!cosmetic.owned ? (
                     <button
                       onClick={() => handlePurchase(cosmetic.id)}
-                      disabled={
-                        cosmetic.price > coinBalance ||
-                        purchasing !== null ||
-                        !cosmetic.available
-                      }
+                      disabled={cosmetic.price > coinBalance || purchasing !== null || !cosmetic.available}
                       className="flex-1 clay cursor-pointer rounded-xl border-0 bg-clay-yellow py-2 font-body text-sm font-bold text-[#7a5b18] active:clay-pressed disabled:opacity-50"
                     >
                       {purchasing === cosmetic.id ? 'Buying...' : 'Buy'}

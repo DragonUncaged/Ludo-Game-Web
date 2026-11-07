@@ -93,7 +93,10 @@ export default function GameScreen() {
     }`;
 
   return (
-    <div className="relative z-10 flex w-full flex-col items-center" style={{ maxWidth: 'min(680px, 94vmin)' }}>
+    <div
+      className="relative z-10 flex w-full flex-col items-center"
+      style={{ maxWidth: 'min(680px, 94vmin)' }}
+    >
       {/* header: current turn + settings */}
       <header className="mb-3 flex w-full items-center justify-between gap-3">
         <div
@@ -102,10 +105,20 @@ export default function GameScreen() {
         >
           <div
             className="h-8 w-8 rounded-xl transition-colors duration-300"
-            style={{ background: accent, boxShadow: 'inset -3px -3px 5px rgba(0,0,0,.2), inset 3px 3px 5px rgba(255,255,255,.4)' }}
+            style={{
+              background: accent,
+              boxShadow: 'inset -3px -3px 5px rgba(0,0,0,.2), inset 3px 3px 5px rgba(255,255,255,.4)',
+            }}
           />
-          <span className="whitespace-nowrap font-display text-base font-extrabold" style={{ color: dark ? '#f3eefe' : '#4a4258' }}>
-            {snap.roomPhase === 'ended' ? 'Game over!' : isMyTurn ? 'Your turn!' : `${current?.nickname ?? '…'}'s turn`}
+          <span
+            className="whitespace-nowrap font-display text-base font-extrabold"
+            style={{ color: dark ? '#f3eefe' : '#4a4258' }}
+          >
+            {snap.roomPhase === 'ended'
+              ? 'Game over!'
+              : isMyTurn
+                ? 'Your turn!'
+                : `${current?.nickname ?? '…'}'s turn`}
           </span>
         </div>
         <button
@@ -126,25 +139,51 @@ export default function GameScreen() {
           >
             <div className="mb-3 font-display text-lg font-extrabold">Settings</div>
             <div className="mb-1 text-xs font-extrabold uppercase tracking-wide opacity-50">Board mode</div>
-            <div className="clay-pressed mb-3 flex gap-1 rounded-2xl p-1" style={{ background: dark ? '#3c3959' : '#f4ede3' }}>
-              <button className={pill(settings.tokenStyle === 'clay')} onClick={() => settings.setTokenStyle('clay')}>Clay pals</button>
-              <button className={pill(settings.tokenStyle === '2d')} onClick={() => settings.setTokenStyle('2d')}>2D tokens</button>
+            <div
+              className="clay-pressed mb-3 flex gap-1 rounded-2xl p-1"
+              style={{ background: dark ? '#3c3959' : '#f4ede3' }}
+            >
+              <button
+                className={pill(settings.tokenStyle === 'clay')}
+                onClick={() => settings.setTokenStyle('clay')}
+              >
+                Clay pals
+              </button>
+              <button
+                className={pill(settings.tokenStyle === '2d')}
+                onClick={() => settings.setTokenStyle('2d')}
+              >
+                2D tokens
+              </button>
             </div>
             <div className="mb-1 text-xs font-extrabold uppercase tracking-wide opacity-50">Theme</div>
-            <div className="clay-pressed mb-3 flex gap-1 rounded-2xl p-1" style={{ background: dark ? '#3c3959' : '#f4ede3' }}>
-              <button className={pill(!dark)} onClick={() => settings.setTheme('light')}>☀️ Light</button>
-              <button className={pill(dark)} onClick={() => settings.setTheme('dark')}>🌙 Dark</button>
+            <div
+              className="clay-pressed mb-3 flex gap-1 rounded-2xl p-1"
+              style={{ background: dark ? '#3c3959' : '#f4ede3' }}
+            >
+              <button className={pill(!dark)} onClick={() => settings.setTheme('light')}>
+                ☀️ Light
+              </button>
+              <button className={pill(dark)} onClick={() => settings.setTheme('dark')}>
+                🌙 Dark
+              </button>
             </div>
             <div className="mb-3 flex items-center justify-between">
               <span className="text-sm font-bold">Sound</span>
-              <button className={pill(settings.soundOn)} onClick={() => settings.setSoundOn(!settings.soundOn)}>
+              <button
+                className={pill(settings.soundOn)}
+                onClick={() => settings.setSoundOn(!settings.soundOn)}
+              >
                 {settings.soundOn ? 'On' : 'Off'}
               </button>
             </div>
             <div className="mb-3 text-xs font-bold opacity-50">
               Dice: {snap.diceMode === 'dynamic' ? '✨ Exciting (casual pacing)' : '⚖️ Fair'}
             </div>
-            <button onClick={leave} className="w-full cursor-pointer rounded-xl border-0 bg-clay-red py-2.5 font-extrabold text-white">
+            <button
+              onClick={leave}
+              className="w-full cursor-pointer rounded-xl border-0 bg-clay-red py-2.5 font-extrabold text-white"
+            >
               Leave game
             </button>
           </div>
@@ -174,7 +213,11 @@ export default function GameScreen() {
           style={{ background: dark ? '#34314f' : '#fdf6ec', borderRadius: 34 }}
         >
           <div className="relative h-full w-full">
-            <BoardFrame dark={dark} activeColor={current?.color ?? null} seatColors={snap.players.map((p) => p.color)} />
+            <BoardFrame
+              dark={dark}
+              activeColor={current?.color ?? null}
+              seatColors={snap.players.map((p) => p.color)}
+            />
             <TokenLayer
               players={snap.players}
               legalTokens={legalTokens}
@@ -190,14 +233,22 @@ export default function GameScreen() {
 
         {/* floating dice */}
         <div className="absolute -bottom-6 -right-2 z-10">
-          <Dice value={shownDice || snap.dice || 5} rolling={rolling} canRoll={canRoll} accent={accent} onRoll={roll} />
+          <Dice
+            value={shownDice || snap.dice || 5}
+            rolling={rolling}
+            canRoll={canRoll}
+            accent={accent}
+            onRoll={roll}
+          />
         </div>
       </div>
 
       {/* hint bar / toast */}
       <div className="mt-8 h-8 text-center">
         {toast ? (
-          <span className="clay bg-board-light px-4 py-1.5 text-sm font-extrabold text-ink-light">{toast}</span>
+          <span className="clay bg-board-light px-4 py-1.5 text-sm font-extrabold text-ink-light">
+            {toast}
+          </span>
         ) : canRoll ? (
           <span className="text-sm font-extrabold opacity-60" style={{ color: dark ? '#f3eefe' : '#4a4258' }}>
             🎲 Tap the dice to roll!

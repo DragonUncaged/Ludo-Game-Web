@@ -1,12 +1,5 @@
 import { memo } from 'react';
-import {
-  BASE_SLOTS,
-  HOME_GRID,
-  PATH_GRID,
-  SAFE_CELLS,
-  START_OFFSET,
-  TURN_ORDER,
-} from '@ludo/engine';
+import { BASE_SLOTS, HOME_GRID, PATH_GRID, SAFE_CELLS, START_OFFSET, TURN_ORDER } from '@ludo/engine';
 import type { PlayerColor } from '@ludo/engine';
 import { COLOR_HEX, shade } from './colors';
 
@@ -79,10 +72,22 @@ export const BoardFrame = memo(function BoardFrame({ dark, activeColor, seatColo
             'inset -6px -6px 12px rgba(0,0,0,.14), inset 6px 6px 12px rgba(255,255,255,.4), 0 8px 14px rgba(0,0,0,.16)',
         }}
       >
-        <div className="absolute inset-0" style={{ background: COLOR_HEX.green, clipPath: 'polygon(0 0, 100% 0, 50% 50%)' }} />
-        <div className="absolute inset-0" style={{ background: COLOR_HEX.yellow, clipPath: 'polygon(100% 0, 100% 100%, 50% 50%)' }} />
-        <div className="absolute inset-0" style={{ background: COLOR_HEX.blue, clipPath: 'polygon(0 100%, 100% 100%, 50% 50%)' }} />
-        <div className="absolute inset-0" style={{ background: COLOR_HEX.red, clipPath: 'polygon(0 0, 0 100%, 50% 50%)' }} />
+        <div
+          className="absolute inset-0"
+          style={{ background: COLOR_HEX.green, clipPath: 'polygon(0 0, 100% 0, 50% 50%)' }}
+        />
+        <div
+          className="absolute inset-0"
+          style={{ background: COLOR_HEX.yellow, clipPath: 'polygon(100% 0, 100% 100%, 50% 50%)' }}
+        />
+        <div
+          className="absolute inset-0"
+          style={{ background: COLOR_HEX.blue, clipPath: 'polygon(0 100%, 100% 100%, 50% 50%)' }}
+        />
+        <div
+          className="absolute inset-0"
+          style={{ background: COLOR_HEX.red, clipPath: 'polygon(0 0, 0 100%, 50% 50%)' }}
+        />
         <div
           className="absolute left-1/2 top-1/2 flex -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full"
           style={{

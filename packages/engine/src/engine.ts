@@ -1,10 +1,6 @@
 import { SAFE_CELLS, TURN_ORDER } from './constants.js';
 import { absCell, stepPath } from './path.js';
-import {
-  LAST_MAIN_POS,
-  POS_BASE,
-  POS_FINISHED,
-} from './types.js';
+import { LAST_MAIN_POS, POS_BASE, POS_FINISHED } from './types.js';
 import type {
   Capture,
   EngineEvent,

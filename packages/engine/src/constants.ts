@@ -35,6 +35,7 @@ export const START_OFFSET: Record<PlayerColor, number> = {
 export const SAFE_CELLS: ReadonlySet<number> = new Set([1, 14, 27, 40, 9, 22, 35, 48]);
 
 /** Home-column cells per color, in entry order (pos 51..55). */
+// prettier-ignore
 export const HOME_GRID: Record<PlayerColor, readonly GridPoint[]> = {
   red: [[8, 2], [8, 3], [8, 4], [8, 5], [8, 6]],
   green: [[2, 8], [3, 8], [4, 8], [5, 8], [6, 8]],
@@ -51,6 +52,7 @@ export const CENTER_TARGET: Record<PlayerColor, GridPoint> = {
 };
 
 /** Base slot centers per color, one per token index (continuous cell coordinates). */
+// prettier-ignore
 export const BASE_SLOTS: Record<PlayerColor, readonly GridPoint[]> = {
   red: [[2.5, 2.5], [2.5, 4.5], [4.5, 2.5], [4.5, 4.5]],
   green: [[2.5, 11.5], [2.5, 13.5], [4.5, 11.5], [4.5, 13.5]],

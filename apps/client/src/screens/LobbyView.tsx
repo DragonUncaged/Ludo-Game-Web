@@ -62,8 +62,12 @@ export default function LobbyView() {
   return (
     <div className="relative z-10 w-full max-w-md space-y-5">
       <div className="clay bg-board-light p-6 text-center">
-        <div className="text-xs font-extrabold uppercase tracking-wide opacity-50">Room code — share with friends</div>
-        <div className="mt-2 font-display text-5xl font-extrabold tracking-[0.25em] text-ink-light">{snap.joinCode}</div>
+        <div className="text-xs font-extrabold uppercase tracking-wide opacity-50">
+          Room code — share with friends
+        </div>
+        <div className="mt-2 font-display text-5xl font-extrabold tracking-[0.25em] text-ink-light">
+          {snap.joinCode}
+        </div>
         <div className="mt-1 text-xs font-bold opacity-40">
           {snap.diceMode === 'dynamic' ? '✨ Exciting dice' : '⚖️ Fair dice'} · {snap.turnSeconds}s turns
         </div>
@@ -75,7 +79,10 @@ export default function LobbyView() {
         </div>
         <div className="space-y-2">
           {snap.players.map((p, i) => (
-            <div key={p.sessionId} className="clay-pressed flex items-center gap-3 rounded-2xl bg-seg-light px-3 py-2">
+            <div
+              key={p.sessionId}
+              className="clay-pressed flex items-center gap-3 rounded-2xl bg-seg-light px-3 py-2"
+            >
               <div style={{ width: 34, height: 42 }}>
                 <ClayCharacter color={COLOR_HEX[previewColors[i]!]!} mode="clay" bob={i === 0} />
               </div>
@@ -109,7 +116,9 @@ export default function LobbyView() {
       )}
 
       {notice && (
-        <div className="clay bg-clay-red/90 px-4 py-3 text-center text-sm font-extrabold text-white">{notice}</div>
+        <div className="clay bg-clay-red/90 px-4 py-3 text-center text-sm font-extrabold text-white">
+          {notice}
+        </div>
       )}
 
       {isHost ? (
@@ -120,10 +129,15 @@ export default function LobbyView() {
           Start game ▶
         </button>
       ) : (
-        <div className="clay bg-board-light py-4 text-center font-bold opacity-60">Waiting for the host to start…</div>
+        <div className="clay bg-board-light py-4 text-center font-bold opacity-60">
+          Waiting for the host to start…
+        </div>
       )}
 
-      <button onClick={leave} className="w-full cursor-pointer border-0 bg-transparent py-2 font-bold text-ink-light opacity-50">
+      <button
+        onClick={leave}
+        className="w-full cursor-pointer border-0 bg-transparent py-2 font-bold text-ink-light opacity-50"
+      >
         ← Leave room
       </button>
     </div>

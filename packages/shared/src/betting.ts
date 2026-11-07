@@ -94,11 +94,7 @@ export function computeSettlement(betAmount: number, seats: BettingSeat[]): Coin
  * Mirrors `computeSettlement` for seats we have no account id for (the client
  * never learns user ids), so pass `userId: 0` for any human seat.
  */
-export function coinDeltaForSeat(
-  betAmount: number,
-  seats: BettingSeat[],
-  seat: number
-): number {
+export function coinDeltaForSeat(betAmount: number, seats: BettingSeat[], seat: number): number {
   const settlement = computeSettlement(betAmount, seats);
   if (settlement.bettorCount === 0) return 0;
   const me = seats.find((s) => s.seat === seat);

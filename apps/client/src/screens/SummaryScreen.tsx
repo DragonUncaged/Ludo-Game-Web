@@ -82,7 +82,15 @@ export default function SummaryScreen() {
         ))}
       </div>
       <div className="clay p-8 text-center" style={{ background: dark ? '#34314f' : '#fdf6ec' }}>
-        <div className="mx-auto mb-3" style={{ width: 110, height: 132, animation: 'dance-wiggle 0.7s ease-in-out infinite', transformOrigin: 'center bottom' }}>
+        <div
+          className="mx-auto mb-3"
+          style={{
+            width: 110,
+            height: 132,
+            animation: 'dance-wiggle 0.7s ease-in-out infinite',
+            transformOrigin: 'center bottom',
+          }}
+        >
           <ClayCharacter color={COLOR_HEX[winnerColor] ?? '#b98bff'} mode="clay" />
         </div>
         <div className="font-display text-4xl font-extrabold" style={{ color: dark ? '#f3eefe' : '#4a4258' }}>
@@ -109,12 +117,18 @@ export default function SummaryScreen() {
                   {e.nickname}
                   {p?.sessionId === mySessionId ? ' (you)' : ''}
                 </span>
-                <span className="ml-auto flex items-center gap-2 text-xs font-bold opacity-50" style={{ color: dark ? '#f3eefe' : '#4a4258' }}>
-                  <span>🏠 {e.tokensHome} · ⚔️ {e.captures}</span>
+                <span
+                  className="ml-auto flex items-center gap-2 text-xs font-bold opacity-50"
+                  style={{ color: dark ? '#f3eefe' : '#4a4258' }}
+                >
+                  <span>
+                    🏠 {e.tokensHome} · ⚔️ {e.captures}
+                  </span>
                   {snap.betAmount > 0 && p?.forfeitedBet && <span title="Left mid-match">🏳️</span>}
                   {showCoins && (
                     <span style={{ color: coinDelta >= 0 ? '#22c55e' : '#ef4444' }}>
-                      {coinDelta >= 0 ? '+' : ''}{coinDelta}💰
+                      {coinDelta >= 0 ? '+' : ''}
+                      {coinDelta}💰
                     </span>
                   )}
                 </span>
@@ -124,7 +138,10 @@ export default function SummaryScreen() {
         </div>
       </div>
 
-      <button onClick={home} className="clay w-full cursor-pointer rounded-2xl border-0 bg-clay-yellow py-4 font-body text-lg font-extrabold text-[#7a5b18]">
+      <button
+        onClick={home}
+        className="clay w-full cursor-pointer rounded-2xl border-0 bg-clay-yellow py-4 font-body text-lg font-extrabold text-[#7a5b18]"
+      >
         Play again
       </button>
     </div>

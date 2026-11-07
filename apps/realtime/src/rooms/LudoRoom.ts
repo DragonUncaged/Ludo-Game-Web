@@ -357,23 +357,28 @@ export class LudoRoom extends Room<{ state: LudoState; metadata: { joinCode: str
     this.clock.setTimeout(() => this.onTurnTimeout(nonce), this.state.turnSeconds * 1000);
   }
 
+  /** Bots, and players who dropped, act after a short random pause so turns don't fly by. */
   private scheduleBotAction(nonce: number) {
+    const stale = () => nonce !== this.turnNonce || this.state.roomPhase !== 'playing';
+    const move = () => {
+      const choice = chooseBotMove(this.game, this.pendingMoves, 'normal', this.botRng);
+      this.doMove(choice.tokenIndex);
+    };
+    const thinkMs = T.botRoll + Math.floor(Math.random() * (FAST ? 5 : 400));
+    const pickMs = T.botMove + Math.floor(Math.random() * 300);
+
     this.clock.setTimeout(() => {
-      if (nonce !== this.turnNonce || this.state.roomPhase !== 'playing') return;
-      if (this.state.turnPhase === 'awaitRoll') {
+      if (stale()) return;
+      if (this.state.turnPhase === 'awaitMove') {
+        move();
+      } else if (this.state.turnPhase === 'awaitRoll') {
         this.doRoll();
-        if (this.phase() === 'awaitMove') {
-          this.clock.setTimeout(() => {
-            if (nonce !== this.turnNonce || this.state.turnPhase !== 'awaitMove') return;
-            const move = chooseBotMove(this.game, this.pendingMoves, 'normal', this.botRng);
-            this.doMove(move.tokenIndex);
-          }, T.botMove + Math.floor(Math.random() * 300));
-        }
-      } else if (this.state.turnPhase === 'awaitMove') {
-        const move = chooseBotMove(this.game, this.pendingMoves, 'normal', this.botRng);
-        this.doMove(move.tokenIndex);
+        if (this.phase() !== 'awaitMove') return;
+        this.clock.setTimeout(() => {
+          if (!stale() && this.phase() === 'awaitMove') move();
+        }, pickMs);
       }
-    }, T.botRoll + Math.floor(Math.random() * (FAST ? 5 : 400)));
+    }, thinkMs);
   }
 
   private onTurnTimeout(nonce: number) {
@@ -407,7 +412,9 @@ export class LudoRoom extends Room<{ state: LudoState; metadata: { joinCode: str
     }
     this.rollsSinceSix[seat] = value === 6 ? 0 : (this.rollsSinceSix[seat] ?? 0) + 1;
     if (weights && this.state.diceMode === 'dynamic') {
-      console.debug(`[dice] seat=${seat} value=${value} weights=${weights.map((w) => w.toFixed(2)).join(',')}`);
+      console.debug(
+        `[dice] seat=${seat} value=${value} weights=${weights.map((w) => w.toFixed(2)).join(',')}`
+      );
     }
 
     const res = applyRoll(this.game, value);

@@ -5,7 +5,7 @@
 - 4 tokens per player; 2–4 players. Turn order red → green → yellow → blue (clockwise).
 - Roll a **6 to leave base** (token enters its start cell).
 - **Extra roll on 6**; three consecutive 6s forfeit the turn (roll discarded).
-- **Capture**: landing on a cell with opponent tokens sends *all* of them back to base —
+- **Capture**: landing on a cell with opponent tokens sends _all_ of them back to base —
   unless the cell is safe. No captures on safe cells; tokens co-exist there.
 - **Safe cells**: the 4 start cells + 4 star cells (one per board arm).
 - **Home column**: after a full lap a token turns into its color's 5-cell home column;
@@ -21,12 +21,12 @@
 15×15 grid. Main path = **52 cells**, indexed 0–51 (see `packages/engine/src/constants.ts`
 `PATH_GRID`). Bases: red top-left, green top-right, blue bottom-left, yellow bottom-right.
 
-| Color | Start cell (abs idx / grid) | Home-column entry | Home column |
-|---|---|---|---|
-| red | 1 → (7,2) | (8,1) | row 8, cols 2–6 |
-| green | 14 → (2,9) | (1,8) | col 8, rows 2–6 |
-| yellow | 27 → (9,14) | (8,15) | row 8, cols 14–10 |
-| blue | 40 → (14,7) | (15,8) | col 8, rows 14–10 |
+| Color  | Start cell (abs idx / grid) | Home-column entry | Home column       |
+| ------ | --------------------------- | ----------------- | ----------------- |
+| red    | 1 → (7,2)                   | (8,1)             | row 8, cols 2–6   |
+| green  | 14 → (2,9)                  | (1,8)             | col 8, rows 2–6   |
+| yellow | 27 → (9,14)                 | (8,15)            | row 8, cols 14–10 |
+| blue   | 40 → (14,7)                 | (15,8)            | col 8, rows 14–10 |
 
 Safe cells (abs indices): `{1, 14, 27, 40}` (starts) + `{9, 22, 35, 48}` (stars at
 (3,7), (7,13), (13,9), (9,3)).
@@ -35,12 +35,12 @@ Safe cells (abs indices): `{1, 14, 27, 40}` (starts) + `{9, 22, 35, 48}` (stars 
 
 One integer per token, **relative to its own color**:
 
-| `pos` | Meaning |
-|---|---|
-| `-1` | In base |
-| `0..50` | Main-path progress; absolute cell = `(START_OFFSET[color] + pos) % 52` |
-| `51..55` | Home-column cell `pos − 51` |
-| `56` | Finished (center home) |
+| `pos`    | Meaning                                                                |
+| -------- | ---------------------------------------------------------------------- |
+| `-1`     | In base                                                                |
+| `0..50`  | Main-path progress; absolute cell = `(START_OFFSET[color] + pos) % 52` |
+| `51..55` | Home-column cell `pos − 51`                                            |
+| `56`     | Finished (center home)                                                 |
 
 `START_OFFSET = { red: 1, green: 14, yellow: 27, blue: 40 }`. Home-entry math is automatic:
 a token's last main-path cell is `pos = 50` (one cell before its entry), so `pos + dice > 56`
@@ -65,5 +65,5 @@ only mode allowed in any future ranked play.
 
 `score(move) = capture×40 + victimProgress×0.5 + finish×50 + enterHome×25 + exitBase×20
 (8 if ≥2 tokens out) + landSafe×12 + escapeThreat×18 − 8×Σ threat×(7−dist)/6
-+ to×0.3 ± 0.5 jitter`. Timeout auto-move takes argmax; `normal` bots take argmax;
-`easy` bots sample softmax over the top 3.
+
+- to×0.3 ± 0.5 jitter`. Timeout auto-move takes argmax; `normal`bots take argmax;`easy` bots sample softmax over the top 3.

@@ -29,26 +29,26 @@ Server-private (never synced): authoritative engine `GameState`, dice roller + p
 
 ## Client → server intents
 
-| Message | Payload | Guards |
-|---|---|---|
-| `roll` | `{}` | sender is current human seat, `turnPhase === 'awaitRoll'` |
-| `move` | `{ tokenIndex }` | sender is current, `awaitMove`, tokenIndex in legal set |
-| `startGame` | `{}` | host only, `waiting`; fills empty seats with bots |
-| `setOptions` | `{ seats?, diceMode?, turnSeconds? }` | host only, `waiting` |
-| `time` | `{ t0 }` | any; server replies `timeResult { t0, server }` for clock offset |
+| Message      | Payload                               | Guards                                                           |
+| ------------ | ------------------------------------- | ---------------------------------------------------------------- |
+| `roll`       | `{}`                                  | sender is current human seat, `turnPhase === 'awaitRoll'`        |
+| `move`       | `{ tokenIndex }`                      | sender is current, `awaitMove`, tokenIndex in legal set          |
+| `startGame`  | `{}`                                  | host only, `waiting`; fills empty seats with bots                |
+| `setOptions` | `{ seats?, diceMode?, turnSeconds? }` | host only, `waiting`                                             |
+| `time`       | `{ t0 }`                              | any; server replies `timeResult { t0, server }` for clock offset |
 
 Join options: `{ nickname, deviceToken, create?: { seats, diceMode, turnSeconds } }`.
 
 ## Server → client events (broadcast)
 
-| Event | Payload |
-|---|---|
-| `diceRolled` | `{ seat, value, legalTokens: number[], autoPass, forfeit }` |
-| `moveApplied` | `{ seat, tokenIndex, path: number[], captures: [{seat, tokenIndex, fromPos}], finishedToken: boolean, extraRoll: boolean }` |
-| `turnChanged` | `{ seat, deadline }` |
-| `playerFinished` | `{ seat, rank }` |
-| `gameOver` | `{ ranking: [{seat, nickname, rank, captures, tokensHome}] }` |
-| `joinError` (single client) | `{ code: 'ROOM_FULL' | 'ROOM_STARTED' | 'ALREADY_IN_ROOM' }` |
+| Event                       | Payload                                                                                                                     |
+| --------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| `diceRolled`                | `{ seat, value, legalTokens: number[], autoPass, forfeit }`                                                                 |
+| `moveApplied`               | `{ seat, tokenIndex, path: number[], captures: [{seat, tokenIndex, fromPos}], finishedToken: boolean, extraRoll: boolean }` |
+| `turnChanged`               | `{ seat, deadline }`                                                                                                        |
+| `playerFinished`            | `{ seat, rank }`                                                                                                            |
+| `gameOver`                  | `{ ranking: [{seat, nickname, rank, captures, tokensHome}] }`                                                               |
+| `joinError` (single client) | `{ code: 'ROOM_FULL'                                                                                                        | 'ROOM_STARTED' | 'ALREADY_IN_ROOM' }` |
 
 Schema is the ground truth (late join / reconnect hydration). Events carry choreography —
 the step path and capture list drive client animations; clients never derive animations

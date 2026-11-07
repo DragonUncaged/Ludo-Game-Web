@@ -51,7 +51,9 @@ export const TokenLayer = memo(function TokenLayer({
         p.tokens.map((pos, token) => {
           const ovr = overrides[`${seat}-${token}`];
           let r: number, c: number;
-          let dx = 0, dy = 0, scale = 1;
+          let dx = 0;
+          let dy = 0;
+          let scale = 1;
           if (ovr) {
             r = ovr.r;
             c = ovr.c;
@@ -67,8 +69,7 @@ export const TokenLayer = memo(function TokenLayer({
               scale = 0.72;
             }
           }
-          const legal =
-            !ovr && seat === mySeatIdx && seat === currentPlayer && legalTokens.includes(token);
+          const legal = !ovr && seat === mySeatIdx && seat === currentPlayer && legalTokens.includes(token);
           const anim = ovr?.anim;
           return (
             <button
@@ -117,7 +118,11 @@ export const TokenLayer = memo(function TokenLayer({
         <div
           key={poof.id}
           className="absolute h-0 w-0"
-          style={{ left: `${((poof.c - 0.5) / 15) * 100}%`, top: `${((poof.r - 0.5) / 15) * 100}%`, zIndex: 10 }}
+          style={{
+            left: `${((poof.c - 0.5) / 15) * 100}%`,
+            top: `${((poof.r - 0.5) / 15) * 100}%`,
+            zIndex: 10,
+          }}
         >
           {POOF_COLORS.map((col, i) => {
             const a = (i * Math.PI) / 4;

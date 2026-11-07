@@ -30,12 +30,12 @@ user_stats    (user_id PK FK, games_played, wins, captures_made,
 
 ## Write points
 
-| When | What | Mode |
-|---|---|---|
-| Player joins room | `guest_users` upsert (nickname + last_seen refresh) | fire-and-forget |
-| Host starts game | insert `matches` + `match_players` | fire-and-forget |
-| After each move | `matches.snapshot = <serialized engine state>` | fire-and-forget |
-| Game over | complete match + ranks + `user_stats` increments | one transaction |
-| Room disposed unfinished | `matches.status = 'abandoned'` | fire-and-forget |
+| When                     | What                                                | Mode            |
+| ------------------------ | --------------------------------------------------- | --------------- |
+| Player joins room        | `guest_users` upsert (nickname + last_seen refresh) | fire-and-forget |
+| Host starts game         | insert `matches` + `match_players`                  | fire-and-forget |
+| After each move          | `matches.snapshot = <serialized engine state>`      | fire-and-forget |
+| Game over                | complete match + ranks + `user_stats` increments    | one transaction |
+| Room disposed unfinished | `matches.status = 'abandoned'`                      | fire-and-forget |
 
 Fire-and-forget writes log errors but never block the game loop.

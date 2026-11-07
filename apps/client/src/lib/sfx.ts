@@ -36,7 +36,8 @@ function blip(
 
 export const sfx = {
   roll(): void {
-    for (let i = 0; i < 5; i++) blip(180 + Math.random() * 320, 0.05, { type: 'square', gain: 0.03, delay: i * 0.07 });
+    for (let i = 0; i < 5; i++)
+      blip(180 + Math.random() * 320, 0.05, { type: 'square', gain: 0.03, delay: i * 0.07 });
   },
   hop(step: number): void {
     blip(300 + step * 40, 0.09, { type: 'triangle', gain: 0.05 });
@@ -53,6 +54,8 @@ export const sfx = {
     blip(880, 0.16, { type: 'triangle', gain: 0.06, delay: 0.1 });
   },
   win(): void {
-    [523, 659, 784, 1047, 784, 1047].forEach((f, i) => blip(f, 0.18, { type: 'triangle', gain: 0.07, delay: i * 0.13 }));
+    [523, 659, 784, 1047, 784, 1047].forEach((f, i) =>
+      blip(f, 0.18, { type: 'triangle', gain: 0.07, delay: i * 0.13 })
+    );
   },
 };

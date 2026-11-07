@@ -18,14 +18,14 @@ just switches off when `DATABASE_URL` is unset).
 
 ## Workspace
 
-| Package | What |
-|---|---|
+| Package           | What                                                                                  |
+| ----------------- | ------------------------------------------------------------------------------------- |
 | `packages/engine` | Pure TS Ludo rules + move scorer + bots + dice (zero deps, shared by server & client) |
-| `packages/shared` | Protocol message types, join-code helpers |
-| `packages/db` | pg pool, SQL migrations, query layer (Neon Postgres) |
-| `apps/realtime` | Colyseus server — authoritative rooms, timers, bots, reconnect |
-| `apps/api` | Express REST — guests, stats, match history |
-| `apps/client` | Vite + React SPA — clay UI, animations, 2D/clay + light/dark modes |
+| `packages/shared` | Protocol message types, join-code helpers                                             |
+| `packages/db`     | pg pool, SQL migrations, query layer (Neon Postgres)                                  |
+| `apps/realtime`   | Colyseus server — authoritative rooms, timers, bots, reconnect                        |
+| `apps/api`        | Express REST — guests, stats, match history                                           |
+| `apps/client`     | Vite + React SPA — clay UI, animations, 2D/clay + light/dark modes                    |
 
 ## Commands
 

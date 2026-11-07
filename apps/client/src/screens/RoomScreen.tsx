@@ -56,18 +56,30 @@ export default function RoomScreen() {
             : 'linear-gradient(160deg,#ffe9f0,#e9f1ff,#eafff2)',
         }}
       >
-        <div className="pointer-events-none absolute -left-20 -top-28 h-[380px] w-[380px] rounded-full opacity-60 blur-[60px]" style={{ background: dark ? '#4b3f6e' : '#ffc7d9', animation: 'drift-a 14s ease-in-out infinite' }} />
-        <div className="pointer-events-none absolute -bottom-32 -right-24 h-[420px] w-[420px] rounded-full opacity-55 blur-[70px]" style={{ background: dark ? '#3a5a72' : '#bfe0ff', animation: 'drift-b 17s ease-in-out infinite' }} />
+        <div
+          className="pointer-events-none absolute -left-20 -top-28 h-[380px] w-[380px] rounded-full opacity-60 blur-[60px]"
+          style={{ background: dark ? '#4b3f6e' : '#ffc7d9', animation: 'drift-a 14s ease-in-out infinite' }}
+        />
+        <div
+          className="pointer-events-none absolute -bottom-32 -right-24 h-[420px] w-[420px] rounded-full opacity-55 blur-[70px]"
+          style={{ background: dark ? '#3a5a72' : '#bfe0ff', animation: 'drift-b 17s ease-in-out infinite' }}
+        />
 
         {error ? (
           <div className="relative z-10 mt-24 w-full max-w-sm space-y-4 text-center">
             <div className="clay bg-clay-red/90 px-4 py-3 font-bold text-white">{error}</div>
-            <button onClick={() => navigate('/')} className="clay cursor-pointer rounded-2xl border-0 bg-board-light px-6 py-3 font-extrabold text-ink-light">
+            <button
+              onClick={() => navigate('/')}
+              className="clay cursor-pointer rounded-2xl border-0 bg-board-light px-6 py-3 font-extrabold text-ink-light"
+            >
               ← Back home
             </button>
           </div>
         ) : !snap ? (
-          <div className="relative z-10 mt-24 font-display text-2xl font-extrabold" style={{ color: dark ? '#f3eefe' : '#4a4258' }}>
+          <div
+            className="relative z-10 mt-24 font-display text-2xl font-extrabold"
+            style={{ color: dark ? '#f3eefe' : '#4a4258' }}
+          >
             Joining room…
           </div>
         ) : phase === 'waiting' ? (

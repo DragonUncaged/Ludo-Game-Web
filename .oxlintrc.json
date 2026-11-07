@@ -1,12 +1,6 @@
 {
   "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": [
-    "typescript",
-    "react",
-    "oxc",
-    "import",
-    "vitest"
-  ],
+  "plugins": ["typescript", "react", "oxc", "import", "vitest"],
   "categories": {
     "correctness": "error",
     "suspicious": "warn"
@@ -25,14 +19,10 @@
     "import/no-unassigned-import": [
       "warn",
       {
-        "allow": [
-          "**/*.css"
-        ]
+        "allow": ["**/*.css"]
       }
     ],
     "react/set-state-in-effect": "off"
   },
-  "ignorePatterns": [
-    "**/dist/**"
-  ]
+  "ignorePatterns": ["**/dist/**"]
 }

@@ -33,7 +33,10 @@ describe('computeSettlement', () => {
 
   it('excludes bots from the pot', () => {
     // Two humans, two bots — the pot is 2 stakes, not 4.
-    const s = computeSettlement(50, seats([{}, { isBot: true, userId: null }, {}, { isBot: true, userId: null }]));
+    const s = computeSettlement(
+      50,
+      seats([{}, { isBot: true, userId: null }, {}, { isBot: true, userId: null }])
+    );
     expect(s.bettorCount).toBe(2);
     expect(s.pot).toBe(100);
     expect(s.winnerNet).toBe(50);
@@ -43,12 +46,7 @@ describe('computeSettlement', () => {
   it('hands the pot to the best-ranked human when a bot finishes first', () => {
     const s = computeSettlement(
       20,
-      seats([
-        { isBot: true, userId: null, rank: 1 },
-        { rank: 2 },
-        { rank: 3 },
-        { rank: 4 },
-      ])
+      seats([{ isBot: true, userId: null, rank: 1 }, { rank: 2 }, { rank: 3 }, { rank: 4 }])
     );
     expect(s.winnerSeat).toBe(1);
     expect(s.winnerId).toBe(101);
@@ -85,7 +83,10 @@ describe('computeSettlement', () => {
 
   it('makes a quitter forfeit their stake even if the bot playing their seat wins', () => {
     // Seat 0 walked out, then the takeover bot finished first anyway.
-    const s = computeSettlement(50, seats([{ forfeited: true, rank: 1 }, { rank: 2 }, { rank: 3 }, { rank: 4 }]));
+    const s = computeSettlement(
+      50,
+      seats([{ forfeited: true, rank: 1 }, { rank: 2 }, { rank: 3 }, { rank: 4 }])
+    );
     expect(s.bettorCount).toBe(4);
     expect(s.pot).toBe(200);
     expect(s.winnerSeat).toBe(1);
@@ -104,14 +105,22 @@ describe('computeSettlement', () => {
   });
 
   it('voids the wager when every bettor walked out', () => {
-    const s = computeSettlement(50, seats([{ forfeited: true }, { forfeited: true }, { isBot: true, userId: null }]));
+    const s = computeSettlement(
+      50,
+      seats([{ forfeited: true }, { forfeited: true }, { isBot: true, userId: null }])
+    );
     expect(s).toMatchObject({ pot: 0, winnerId: null, loserIds: [] });
   });
 
   it('leaves a two-player wager intact when one side quits', () => {
     const s = computeSettlement(
       75,
-      seats([{ forfeited: true, rank: 2 }, { rank: 1 }, { isBot: true, userId: null, rank: 3 }, { isBot: true, userId: null, rank: 4 }])
+      seats([
+        { forfeited: true, rank: 2 },
+        { rank: 1 },
+        { isBot: true, userId: null, rank: 3 },
+        { isBot: true, userId: null, rank: 4 },
+      ])
     );
     expect(s.bettorCount).toBe(2);
     expect(s.winnerId).toBe(101);

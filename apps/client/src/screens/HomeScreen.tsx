@@ -117,8 +117,14 @@ export default function HomeScreen() {
       className="relative flex min-h-screen flex-col items-center overflow-hidden px-5 py-10"
       style={{ background: 'linear-gradient(160deg,#ffe9f0,#e9f1ff,#eafff2)' }}
     >
-      <div className="pointer-events-none absolute -left-20 -top-28 h-[380px] w-[380px] rounded-full opacity-60 blur-[60px]" style={{ background: '#ffc7d9', animation: 'drift-a 14s ease-in-out infinite' }} />
-      <div className="pointer-events-none absolute -bottom-32 -right-24 h-[420px] w-[420px] rounded-full opacity-55 blur-[70px]" style={{ background: '#bfe0ff', animation: 'drift-b 17s ease-in-out infinite' }} />
+      <div
+        className="pointer-events-none absolute -left-20 -top-28 h-[380px] w-[380px] rounded-full opacity-60 blur-[60px]"
+        style={{ background: '#ffc7d9', animation: 'drift-a 14s ease-in-out infinite' }}
+      />
+      <div
+        className="pointer-events-none absolute -bottom-32 -right-24 h-[420px] w-[420px] rounded-full opacity-55 blur-[70px]"
+        style={{ background: '#bfe0ff', animation: 'drift-b 17s ease-in-out infinite' }}
+      />
 
       <header className="relative z-10 mb-8 flex w-full flex-col items-center px-5">
         <div className="flex items-end gap-3">
@@ -141,23 +147,24 @@ export default function HomeScreen() {
               <span className="font-display text-lg font-extrabold text-ink-light">{balance}</span>
             )}
           </div>
-          {bonus.available && (bonus.claimable ? (
-            <button
-              onClick={() => void bonus.claim()}
-              disabled={bonus.claiming}
-              title={`Claim ${bonus.amount} coins`}
-              className="clay cursor-pointer rounded-full border-0 bg-clay-yellow px-4 py-2 font-body text-lg font-extrabold text-[#7a5b18] active:clay-pressed disabled:opacity-50"
-            >
-              {bonus.claiming ? '🎁 …' : `🎁 +${bonus.amount}`}
-            </button>
-          ) : (
-            <div
-              title="Your next daily bonus"
-              className="clay-pressed rounded-full bg-white/40 px-4 py-2 font-body text-sm font-bold opacity-60 backdrop-blur-sm"
-            >
-              🎁 {formatCooldown(bonus.msRemaining)}
-            </div>
-          ))}
+          {bonus.available &&
+            (bonus.claimable ? (
+              <button
+                onClick={() => void bonus.claim()}
+                disabled={bonus.claiming}
+                title={`Claim ${bonus.amount} coins`}
+                className="clay cursor-pointer rounded-full border-0 bg-clay-yellow px-4 py-2 font-body text-lg font-extrabold text-[#7a5b18] active:clay-pressed disabled:opacity-50"
+              >
+                {bonus.claiming ? '🎁 …' : `🎁 +${bonus.amount}`}
+              </button>
+            ) : (
+              <div
+                title="Your next daily bonus"
+                className="clay-pressed rounded-full bg-white/40 px-4 py-2 font-body text-sm font-bold opacity-60 backdrop-blur-sm"
+              >
+                🎁 {formatCooldown(bonus.msRemaining)}
+              </div>
+            ))}
           <button
             onClick={() => navigate('/shop')}
             className="clay cursor-pointer rounded-full bg-white/40 px-4 py-2 font-body text-lg font-bold text-ink-light backdrop-blur-sm active:clay-pressed"
@@ -197,22 +204,30 @@ export default function HomeScreen() {
             <span className="text-sm font-bold opacity-60">Players</span>
             <div className="clay-pressed flex gap-1 rounded-2xl bg-seg-light p-1">
               {([2, 3, 4] as const).map((n) => (
-                <button key={n} className={pill(seats === n)} onClick={() => setSeats(n)}>{n}</button>
+                <button key={n} className={pill(seats === n)} onClick={() => setSeats(n)}>
+                  {n}
+                </button>
               ))}
             </div>
           </div>
           <div className="mb-2 flex items-center justify-between">
             <span className="text-sm font-bold opacity-60">Dice</span>
             <div className="clay-pressed flex gap-1 rounded-2xl bg-seg-light p-1">
-              <button className={pill(diceMode === 'dynamic')} onClick={() => setDiceMode('dynamic')}>✨ Exciting</button>
-              <button className={pill(diceMode === 'fair')} onClick={() => setDiceMode('fair')}>⚖️ Fair</button>
+              <button className={pill(diceMode === 'dynamic')} onClick={() => setDiceMode('dynamic')}>
+                ✨ Exciting
+              </button>
+              <button className={pill(diceMode === 'fair')} onClick={() => setDiceMode('fair')}>
+                ⚖️ Fair
+              </button>
             </div>
           </div>
           <div className="mb-4 flex items-center justify-between">
             <span className="text-sm font-bold opacity-60">Turn timer</span>
             <div className="clay-pressed flex gap-1 rounded-2xl bg-seg-light p-1">
               {[10, 20, 30].map((n) => (
-                <button key={n} className={pill(turnSeconds === n)} onClick={() => setTurnSeconds(n)}>{n}s</button>
+                <button key={n} className={pill(turnSeconds === n)} onClick={() => setTurnSeconds(n)}>
+                  {n}s
+                </button>
               ))}
             </div>
           </div>
@@ -223,7 +238,9 @@ export default function HomeScreen() {
           >
             {busy ? 'Creating…' : 'Create room'}
           </button>
-          <p className="mt-2 text-center text-xs font-bold opacity-40">Empty seats are filled with bots when you start</p>
+          <p className="mt-2 text-center text-xs font-bold opacity-40">
+            Empty seats are filled with bots when you start
+          </p>
         </div>
 
         <div className="clay bg-board-light p-5">

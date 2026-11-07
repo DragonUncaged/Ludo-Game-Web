@@ -14,7 +14,9 @@ export async function migrate(): Promise<string[]> {
   const applied = new Set(
     (await pool.query('SELECT version FROM schema_migrations')).rows.map((r) => r.version as string)
   );
-  const files = readdirSync(MIGRATIONS_DIR).filter((f) => f.endsWith('.sql')).sort();
+  const files = readdirSync(MIGRATIONS_DIR)
+    .filter((f) => f.endsWith('.sql'))
+    .sort();
   const ran: string[] = [];
   for (const file of files) {
     if (applied.has(file)) continue;

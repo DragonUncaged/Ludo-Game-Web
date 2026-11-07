@@ -1,10 +1,5 @@
 import { Router } from 'express';
-import {
-  claimDailyBonus,
-  getCoinBalance,
-  getCoinTransactionHistory,
-  getDailyBonusState,
-} from '@ludo/db';
+import { claimDailyBonus, getCoinBalance, getCoinTransactionHistory, getDailyBonusState } from '@ludo/db';
 import { DAILY_BONUS_COOLDOWN_MS, computeDailyBonus } from '@ludo/shared';
 import { limitParam, validateDeviceToken } from '../http.js';
 

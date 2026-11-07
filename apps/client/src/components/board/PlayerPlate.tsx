@@ -55,7 +55,14 @@ export const PlayerPlate = memo(function PlayerPlate({
     >
       <div className="relative shrink-0" style={{ width: 34, height: 34 }}>
         <svg viewBox="0 0 36 36" className="absolute inset-0 -rotate-90">
-          <circle cx="18" cy="18" r="15.5" fill="none" stroke={dark ? '#4a4667' : '#e7ded1'} strokeWidth="4" />
+          <circle
+            cx="18"
+            cy="18"
+            r="15.5"
+            fill="none"
+            stroke={dark ? '#4a4667' : '#e7ded1'}
+            strokeWidth="4"
+          />
           {isCurrent && (
             <circle
               cx="18"
@@ -79,7 +86,10 @@ export const PlayerPlate = memo(function PlayerPlate({
         />
       </div>
       <div className="min-w-0">
-        <div className="flex items-center gap-1.5 text-sm font-extrabold" style={{ color: dark ? '#f3eefe' : '#4a4258' }}>
+        <div
+          className="flex items-center gap-1.5 text-sm font-extrabold"
+          style={{ color: dark ? '#f3eefe' : '#4a4258' }}
+        >
           <span className="truncate">
             {player.nickname}
             {isMe ? ' (you)' : ''}

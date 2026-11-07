@@ -112,10 +112,7 @@ export async function completeMatch(matchId: number, results: SeatResult[]): Pro
   const client = await getPool().connect();
   try {
     await client.query('BEGIN');
-    await client.query(
-      `UPDATE matches SET status = 'completed', ended_at = now() WHERE id = $1`,
-      [matchId]
-    );
+    await client.query(`UPDATE matches SET status = 'completed', ended_at = now() WHERE id = $1`, [matchId]);
     for (const r of results) {
       await client.query(
         `UPDATE match_players SET final_rank = $3, captures = $4, tokens_home = $5
@@ -193,12 +190,7 @@ export async function getCoinBalance(deviceToken: string): Promise<number | null
 }
 
 export type CoinTransactionType =
-  | 'bet_placed'
-  | 'bet_won'
-  | 'bet_lost'
-  | 'initial_allocation'
-  | 'admin_adjustment'
-  | 'daily_bonus';
+  'bet_placed' | 'bet_won' | 'bet_lost' | 'initial_allocation' | 'admin_adjustment' | 'daily_bonus';
 
 export interface CoinTransaction {
   id: number;
@@ -230,7 +222,7 @@ export async function getCoinTransactionHistory(deviceToken: string, limit = 50)
      LIMIT $2`,
     [deviceToken, limit]
   );
-  return res.rows.map(row => ({
+  return res.rows.map((row) => ({
     id: Number(row.id),
     userId: Number(row.user_id),
     matchId: row.match_id ? Number(row.match_id) : null,
@@ -502,7 +494,7 @@ export async function getShopCosmeticsFiltered(category?: string): Promise<Cosme
     available: boolean;
   }>(query, params);
 
-  return res.rows.map(row => ({
+  return res.rows.map((row) => ({
     id: row.id,
     category: row.category,
     name: row.name,
@@ -545,7 +537,7 @@ export async function getPlayerCosmeticsOwned(deviceToken: string): Promise<Play
     [deviceToken]
   );
 
-  return res.rows.map(row => ({
+  return res.rows.map((row) => ({
     id: row.id,
     category: row.category,
     name: row.name,
@@ -619,9 +611,10 @@ export async function getCosmeticById(cosmeticId: string): Promise<CosmeticItem 
     thumbnail_url: string | null;
     rarity: string;
     available: boolean;
-  }>(`SELECT id, category, name, description, price, thumbnail_url, rarity, available FROM cosmetics WHERE id = $1`, [
-    cosmeticId,
-  ]);
+  }>(
+    `SELECT id, category, name, description, price, thumbnail_url, rarity, available FROM cosmetics WHERE id = $1`,
+    [cosmeticId]
+  );
 
   const row = res.rows[0];
   if (!row) return null;
@@ -736,10 +729,10 @@ export async function equipCosmeticAtomic(userId: number, cosmeticId: string): P
       [userId, category]
     );
 
-    await client.query(`UPDATE player_cosmetics SET is_equipped = true WHERE user_id = $1 AND cosmetic_id = $2`, [
-      userId,
-      cosmeticId,
-    ]);
+    await client.query(
+      `UPDATE player_cosmetics SET is_equipped = true WHERE user_id = $1 AND cosmetic_id = $2`,
+      [userId, cosmeticId]
+    );
 
     await client.query('COMMIT');
     return true;
@@ -771,7 +764,7 @@ export async function getCosmeticsTransactionHistory(
     [deviceToken, limit]
   );
 
-  return res.rows.map(row => ({
+  return res.rows.map((row) => ({
     id: row.id,
     name: row.name,
     price: Number(row.price),
@@ -817,7 +810,7 @@ export async function getLeaderboard(limit = 50): Promise<LeaderboardEntry[]> {
     [limit]
   );
 
-  return res.rows.map(row => ({
+  return res.rows.map((row) => ({
     id: Number(row.id),
     nickname: row.nickname,
     wins: Number(row.wins),
