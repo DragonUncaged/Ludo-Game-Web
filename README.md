@@ -1,48 +1,74 @@
-# Ludo Royale 🎲
+# Ludo Royale
 
-A modern online multiplayer Ludo with claymorphism visuals, animated clay characters,
-AI bots, and thrill systems (turn timers, capture drama, casual-mode dynamic dice pacing).
+Online multiplayer Ludo with squishy clay characters. Create a room, send the six-letter code to
+friends, and any empty seats are filled with bots when the host starts.
 
-## Quick start
+![Mid-game on a four-player board](docs/screenshots/game.jpg)
+
+| Home                                      | Dark theme                                            |
+| ----------------------------------------- | ----------------------------------------------------- |
+| ![Home screen](docs/screenshots/home.jpg) | ![Board in dark mode](docs/screenshots/game-dark.jpg) |
+
+## What's in it
+
+- Private rooms for 2 to 4 players, joined by code. Bots fill empty seats and take over for anyone
+  who leaves mid-game.
+- The server owns the rules. Clients only send "roll" and "move"; dice use `crypto.randomInt`.
+- A turn timer that plays your best move if you go idle, and a two-minute window to reconnect to
+  your seat after a refresh or a dropped connection.
+- Two dice modes. Fair is plain uniform. Exciting gives players stuck in base or far behind a
+  slightly better shot at a six, clamped so P(6) never leaves 12–33%.
+- Coins: wager on a match, claim a daily bonus, spend them in the cosmetics shop, and climb the
+  leaderboard.
+- Clay characters or flat 2D tokens, light and dark themes, synthesized sound effects.
+
+## Stack
+
+A pnpm monorepo on Node 26 and TypeScript 7.
+
+| Package           | What it does                                                         |
+| ----------------- | -------------------------------------------------------------------- |
+| `apps/client`     | React 19 + Vite 8 + Tailwind 4 SPA, state in Zustand                 |
+| `apps/realtime`   | Colyseus 0.18 game server: rooms, turns, timers, bots, reconnects    |
+| `apps/api`        | Express 5 REST API for the wallet, shop and leaderboard              |
+| `packages/engine` | Rules, move scorer, bot and dice. Pure TS, used by server and client |
+| `packages/shared` | Message types, plus the betting and daily bonus math                 |
+| `packages/db`     | Postgres queries and plain SQL migrations                            |
+
+## Running locally
+
+You need Node 26 and pnpm 12. Node 26 no longer ships corepack, so install pnpm with
+`npm i -g pnpm`.
 
 ```bash
 pnpm install
-cp .env.example .env       # fill DATABASE_URL with your Neon pooled connection string
-pnpm --filter @ludo/db migrate
-pnpm dev                   # client :5173 · realtime :2567 · api :8080
+cp .env.example .env            # point DATABASE_URL at any Postgres, or leave it empty
+pnpm --filter @ludo/db migrate  # skip this if you have no database
+pnpm dev
 ```
 
-Open http://localhost:5173, pick a nickname, create a room, share the 6-letter code.
-Empty seats become bots when the host starts. Works without a DB too (persistence
-just switches off when `DATABASE_URL` is unset).
+Open http://localhost:5173. The realtime server listens on :2567 and the API on :8080.
 
-## Workspace
+The game works without a database. You just won't have coins, the shop or the leaderboard.
 
-| Package           | What                                                                                  |
-| ----------------- | ------------------------------------------------------------------------------------- |
-| `packages/engine` | Pure TS Ludo rules + move scorer + bots + dice (zero deps, shared by server & client) |
-| `packages/shared` | Protocol message types, join-code helpers                                             |
-| `packages/db`     | pg pool, SQL migrations, query layer (Neon Postgres)                                  |
-| `apps/realtime`   | Colyseus server — authoritative rooms, timers, bots, reconnect                        |
-| `apps/api`        | Express REST — guests, stats, match history                                           |
-| `apps/client`     | Vite + React SPA — clay UI, animations, 2D/clay + light/dark modes                    |
-
-## Commands
+## Scripts
 
 ```bash
-pnpm test                          # engine unit tests + realtime integration test
-pnpm typecheck                     # strict TS across all packages
-pnpm --filter @ludo/engine test    # rules/scorer/dice suites only
-node apps/realtime/scripts/playmatch.mjs   # scripted full match vs a running server
+pnpm test           # unit tests, plus full bot matches against a real server (~2.5 min)
+pnpm typecheck
+pnpm lint           # oxlint
+pnpm format:check   # prettier
+pnpm build
 ```
 
-Dev toggles (env for `apps/realtime`): `LUDO_FAST=1` accelerates bot/animation timing
-(used by tests), `FIXED_ROLLS=6,2,6` scripts dice for choreography testing,
-`ALLOW_DUP_DEVICE=1` lets one browser join a room twice.
+The realtime server reads a few env vars that help when working on animations: `LUDO_FAST=1`
+speeds up bots, `FIXED_ROLLS=6,6,3` scripts the dice, and `ALLOW_DUP_DEVICE=1` lets the same
+browser join a room twice.
 
-## Docs
+## More
 
-- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — services, state ownership, deployment
-- [docs/GAME_RULES.md](docs/GAME_RULES.md) — rules, board encoding, dice pacing math
-- [docs/PROTOCOL.md](docs/PROTOCOL.md) — schema, intents, events, turn flow, reconnect
-- [docs/DB.md](docs/DB.md) — Postgres schema and write points
+- [Game rules and board encoding](docs/GAME_RULES.md)
+- [Architecture](docs/ARCHITECTURE.md)
+- [Realtime protocol](docs/PROTOCOL.md)
+- [Database](docs/DB.md)
+- [Deploying](docs/DEPLOY.md)
