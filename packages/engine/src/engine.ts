@@ -69,7 +69,7 @@ export function legalMoves(state: GameState, dice: number): Move[] {
       return;
     }
     const to = pos + dice;
-    if (to > POS_FINISHED) return; // overshoot — token immobile this roll
+    if (to > POS_FINISHED) return; // would overshoot home, so it can't move this roll
     moves.push({
       tokenIndex,
       from: pos,

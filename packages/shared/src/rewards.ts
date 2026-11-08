@@ -1,15 +1,6 @@
-// The coin faucet.
-//
-// Every other coin flow in the game is a transfer (betting) or a sink
-// (cosmetics), so the only coins that have ever existed are the 100 a guest is
-// created with. A player who wagers those away is locked out of betting and the
-// shop for good. The daily bonus is the one place new coins enter the economy.
-//
-// Rules:
-//  - One claim per account per cooldown window (24h), server-clocked.
-//  - A claim pays `DAILY_BONUS_BASE`, or enough to lift a broke player back to
-//    `DAILY_BONUS_FLOOR` — whichever is larger. So losing everything costs you a
-//    day, not the account.
+// Daily bonus. Betting only moves coins between players and the shop burns them,
+// so this is the only place new coins come from. A claim pays DAILY_BONUS_BASE,
+// or tops a broke player back up to DAILY_BONUS_FLOOR, once every 24h.
 
 export const DAILY_BONUS_BASE = 25;
 /** A claim tops a poorer player up to here, matching the starting balance. */
@@ -35,7 +26,7 @@ export function dailyBonusAmount(balance: number): number {
 /**
  * @param balance      current coin balance
  * @param lastClaimAt  epoch ms of the last claim, or null if never claimed
- * @param now          epoch ms — pass the *server's* clock, never the browser's
+ * @param now          epoch ms from the *server's* clock, never the browser's
  */
 export function computeDailyBonus(
   balance: number,
@@ -54,7 +45,7 @@ export function computeDailyBonus(
   return { claimable: true, amount, nextClaimAt: now, msRemaining: 0 };
 }
 
-/** "12h 30m" / "45m" / "30s" — for the claim button's cooldown label. */
+/** "12h 30m" / "45m" / "30s", for the claim button's cooldown label. */
 export function formatCooldown(msRemaining: number): string {
   const total = Math.max(0, Math.ceil(msRemaining / 1000));
   const h = Math.floor(total / 3600);

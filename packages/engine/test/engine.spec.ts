@@ -48,7 +48,7 @@ describe('rolling', () => {
     roll = applyRoll(g, 6);
     g = applyMove(roll.state, roll.moves.find((m) => !m.isExitBase)!.tokenIndex).state;
     expect(g.consecutiveSixes).toBe(2);
-    // six #3: forfeit — no move offered, turn passes, counter reset
+    // six #3: forfeit, no move offered, turn passes, counter reset
     roll = applyRoll(g, 6);
     expect(roll.forfeit).toBe(true);
     expect(roll.moves).toHaveLength(0);
@@ -89,7 +89,7 @@ describe('movement and captures', () => {
     expect(res.events.filter((e) => e.type === 'captured')).toHaveLength(2);
   });
 
-  it('does not capture on safe star cells — tokens co-exist', () => {
+  it('does not capture on safe star cells; tokens share them', () => {
     // abs 9 is a safe star. red rel pos for abs 9 = 8; green rel = (9-14+52)%52 = 47
     let g = place(game4(), 0, [7, -1, -1, -1]);
     g = place(g, 1, [47, -1, -1, -1]);
@@ -122,7 +122,7 @@ describe('home column and finishing', () => {
 
   it('never wraps past pos 50 into the shared path again', () => {
     const g = place(game4(), 3, [20, -1, -1, -1]);
-    // blue at rel 20 = abs (40+20)%52 = 8 — still on shared path
+    // blue at rel 20 = abs (40+20)%52 = 8, still on the shared path
     const moves = legalMoves({ ...g, current: 3 }, 4);
     expect(moves[0]!.to).toBe(24);
     expect(moves[0]!.entersHome).toBe(false);

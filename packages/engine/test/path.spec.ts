@@ -45,7 +45,7 @@ describe('board geometry', () => {
   });
 
   it('the cell before each home entry is pos 50 for that color', () => {
-    expect(absCell('red', 50)).toBe(51); // (8,1) is red's entry — abs 51 is the last shared cell red touches
+    expect(absCell('red', 50)).toBe(51); // (8,1) is red's entry; abs 51 is the last shared cell red touches
     expect(absCell('green', 50)).toBe(12);
     expect(absCell('yellow', 50)).toBe(25);
     expect(absCell('blue', 50)).toBe(38);

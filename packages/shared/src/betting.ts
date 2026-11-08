@@ -1,26 +1,16 @@
-// Coin settlement math for wagered matches.
+// Pot math for wagered matches. The server settles with it and the lobby and
+// summary screens preview with it, so they can't disagree.
 //
-// Single source of truth: the realtime server settles with it, the client
-// previews with it. Keeping both on the same function is what stops the lobby
-// from promising a payout the server never pays.
-//
-// Rules (winner-takes-all MVP):
-//  - Only humans who are linked to a stored account can stake. Bots never
-//    contribute to the pot and never collect it.
-//  - Every bettor puts in `betAmount`; the pot is `betAmount × bettors`.
-//  - The best-ranked bettor takes the pot. Their own stake comes back with it,
-//    so their *net* gain is `betAmount × (bettors − 1)` — exactly the sum the
-//    losers give up. Coins are conserved.
-//  - Abandoning a wagered match forfeits the stake: the seat still pays in but
-//    can never collect, however well the bot that took over plays it.
-//  - Fewer than two bettors means there is nothing to play for; nobody pays.
+// Winner takes all: each human with an account stakes `betAmount` and the
+// best-ranked one collects, netting stake × (bettors - 1). Bots never stake.
+// Quitting still costs your stake. Fewer than two bettors voids the wager.
 
 /** A seat as it exists at settlement time. */
 export interface BettingSeat {
   seat: number;
-  /** True for a seat that never staked — a bot that was in the room from the start. */
+  /** Never staked: a bot that was seated from the start. */
   isBot: boolean;
-  /** Account id; null for a human we could not persist (bet is voided for them). */
+  /** Null for a human we couldn't save to the DB; they sit the wager out. */
   userId: number | null;
   /** 1-based finishing rank; the engine ranks every seat. */
   rank: number;
@@ -90,9 +80,8 @@ export function computeSettlement(betAmount: number, seats: BettingSeat[]): Coin
 }
 
 /**
- * Coin change a seat should see on the summary screen.
- * Mirrors `computeSettlement` for seats we have no account id for (the client
- * never learns user ids), so pass `userId: 0` for any human seat.
+ * Coin change to show a seat on the summary screen. The client has no account
+ * ids, so pass `userId: 0` for humans.
  */
 export function coinDeltaForSeat(betAmount: number, seats: BettingSeat[], seat: number): number {
   const settlement = computeSettlement(betAmount, seats);

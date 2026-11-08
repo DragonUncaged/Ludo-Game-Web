@@ -3,7 +3,7 @@ import { DAILY_BONUS_COOLDOWN_MS } from '@ludo/shared';
 import { API_URL } from '../lib/api';
 
 export interface DailyBonusState {
-  /** False until the player has a wallet (no guest row yet) — hide the button. */
+  /** False until the guest row exists; keep the button hidden until then. */
   available: boolean;
   claimable: boolean;
   /** Coins a claim would pay right now. */
@@ -11,7 +11,7 @@ export interface DailyBonusState {
   msRemaining: number;
   loading: boolean;
   claiming: boolean;
-  /** Amount just claimed, for the celebratory toast; cleared by the caller. */
+  /** Amount of the last claim, for the "+25 coins" message. */
   lastClaimed: number | null;
   error: string | null;
   claim: () => Promise<void>;
@@ -25,9 +25,8 @@ interface BonusResponse {
 }
 
 /**
- * Daily bonus status for the home screen. The server owns both the cooldown and
- * the payout; this only mirrors them and ticks the countdown down locally so the
- * button unlocks without a refresh.
+ * The server decides the cooldown and the payout. This mirrors them and counts
+ * down locally so the button unlocks without a reload.
  */
 export function useDailyBonus(deviceToken: string, onClaimed?: () => void): DailyBonusState {
   const [status, setStatus] = useState<BonusResponse | null>(null);

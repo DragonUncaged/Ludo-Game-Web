@@ -30,9 +30,9 @@ export default function SummaryScreen() {
       }))
       .sort((a, b) => a.rank - b.rank);
 
-  // The client never sees account ids, so stand in with 0 to get the same
-  // payout split the server settles with. `staked` (not `isBot`) is the bettor
-  // list — a player who quit mid-match is flagged as a bot but still pays in.
+  // Same math the server settles with. The client has no account ids, so humans
+  // get a placeholder 0. Go by `staked`, not `isBot`: a quitter shows as a bot
+  // but still pays in.
   const bettingSeats: BettingSeat[] = entries.map((e) => {
     const p = snap.players[e.seat];
     const staked = p?.staked ?? false;

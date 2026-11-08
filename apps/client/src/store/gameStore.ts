@@ -31,7 +31,7 @@ export interface GameSnap {
   bettingStatus: 'not_started' | 'in_progress' | 'accepted';
 }
 
-/** Animation override for one token: where to RENDER it (instead of truePos) and how. */
+/** Where to draw a token while it animates, instead of its real position. */
 export interface TokenOverride {
   r: number;
   c: number;

@@ -10,7 +10,7 @@ export interface RollContext {
 
 export interface DiceRoll {
   value: number;
-  /** the weight vector actually used — logged server-side for auditability */
+  /** weights used for this roll; the server logs them */
   weights: number[];
 }
 
@@ -20,7 +20,7 @@ export interface DiceRoller {
 
 export type RandInt = (loInclusive: number, hiExclusive: number) => number;
 
-/** Plain uniform dice — the only mode allowed in competitive play. */
+/** Plain uniform dice. Anything competitive should use these. */
 export class FairDice implements DiceRoller {
   constructor(private randInt: RandInt) {}
   roll(): DiceRoll {
@@ -36,9 +36,9 @@ function progressOf(state: GameState, playerIdx: number): number {
 }
 
 /**
- * Casual-mode pacing dice. Shapes the distribution with bounded nudges; the hard clamp
- * keeps per-roll P(6) inside [12.3%, 33.3%] (fair = 16.7%) — unit-tested. Entropy stays
- * cryptographic: only the distribution is shaped, sampling uses the injected randInt.
+ * Casual mode only. Nudges the odds toward players stuck in base or far behind,
+ * but every weight is clamped so P(6) stays within [12.3%, 33.3%] (fair is 16.7%).
+ * The randomness itself still comes from the injected randInt.
  */
 export class DynamicDice implements DiceRoller {
   constructor(private randInt: RandInt) {}

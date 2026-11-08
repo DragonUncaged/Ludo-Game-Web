@@ -18,7 +18,7 @@ export default function LobbyView() {
   const { balance: myBalance, loading: balanceLoading } = useCoinBalance(settings.deviceToken);
   const [notice, setNotice] = useState<string | null>(null);
 
-  // Surface server-side rejections (e.g. "All players must accept the bet to start").
+  // Blocked starts (unaccepted bet, short balance) come back as an `error` message.
   useEffect(() => {
     if (!room) return;
     let active = true;

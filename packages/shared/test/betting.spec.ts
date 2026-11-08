@@ -32,7 +32,7 @@ describe('computeSettlement', () => {
   });
 
   it('excludes bots from the pot', () => {
-    // Two humans, two bots — the pot is 2 stakes, not 4.
+    // Two humans, two bots: the pot is 2 stakes, not 4.
     const s = computeSettlement(
       50,
       seats([{}, { isBot: true, userId: null }, {}, { isBot: true, userId: null }])

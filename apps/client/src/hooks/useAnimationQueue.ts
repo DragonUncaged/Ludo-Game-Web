@@ -12,9 +12,8 @@ const FLY_MS = 550;
 let poofSeq = 1;
 
 /**
- * Serial animation runner. Schema patches update truePos immediately; this queue
- * pins tokens to override positions and walks them through the step path, so a
- * patch landing mid-animation never teleports a token. Overrides clear on drain.
+ * Plays moves one at a time. The schema patch moves a token instantly, so the
+ * queue pins it with an override and walks it along the step path instead.
  */
 export function useAnimationQueue(room: Room | null): void {
   const queue = useRef<MoveAppliedEvent[]>([]);
@@ -32,7 +31,6 @@ export function useAnimationQueue(room: Room | null): void {
       const color = mover.color as PlayerColor;
       const key = `${msg.seat}-${msg.tokenIndex}`;
 
-      // walk the step path
       for (let i = 0; i < msg.path.length; i++) {
         const [r, c] = posToGrid(color, msg.path[i]!, msg.tokenIndex);
         g().setOverride(key, { r, c, anim: 'hop' });
@@ -41,7 +39,7 @@ export function useAnimationQueue(room: Room | null): void {
       }
       g().setOverride(key, null);
 
-      // captures: victims fly off from the capture cell, poof, reappear in base
+      // Captured tokens fly off the landing cell and reappear in base.
       if (msg.captures.length > 0) {
         const dest = msg.path[msg.path.length - 1]!;
         const [cr, cc] = posToGrid(color, dest, msg.tokenIndex);
@@ -70,10 +68,10 @@ export function useAnimationQueue(room: Room | null): void {
         try {
           await runJob(job);
         } catch {
-          /* never let a bad job wedge the queue */
+          // a bad job must not wedge the queue
         }
       }
-      g().clearOverrides(); // reconcile: render pure truePos when idle
+      g().clearOverrides(); // idle: render straight from the schema again
       running.current = false;
     };
 
@@ -81,7 +79,7 @@ export function useAnimationQueue(room: Room | null): void {
       // A move can be delivered twice around a reconnect; animate it once.
       if (msg.seq && msg.seq <= lastSeq.current) return;
       if (msg.seq) lastSeq.current = msg.seq;
-      // Pin positions synchronously (before the state patch renders) to avoid teleports.
+      // Pin the token before the state patch renders, or it jumps straight to the end.
       const snap = g().snap;
       const mover = snap?.players[msg.seat];
       if (mover && msg.path.length > 0) {

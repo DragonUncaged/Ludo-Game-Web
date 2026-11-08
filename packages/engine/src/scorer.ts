@@ -109,7 +109,7 @@ export function rankMoves(
     .sort((a, b) => b.score - a.score);
 }
 
-/** Deterministic argmax — used for timeout auto-move. */
+/** Best move, no randomness. Used when the turn timer moves for a player. */
 export function pickBestMove(state: GameState, moves: Move[]): Move {
   if (moves.length === 0) throw new Error('no moves to pick from');
   return rankMoves(state, moves)[0]!.move;

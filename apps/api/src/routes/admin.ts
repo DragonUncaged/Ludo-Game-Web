@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { deleteStaleGuestAccounts, getStaleGuestAccounts } from '@ludo/db';
 import { requireAdmin } from '../http.js';
 
-// Prune guests who never finished a match. Preview with GET, then POST with
+// Prune guests who never played a match. Preview with GET, then POST with
 // { "confirmed": true } to delete. Both need `Authorization: Bearer $ADMIN_TOKEN`.
 export const admin = Router();
 admin.use('/admin', requireAdmin);

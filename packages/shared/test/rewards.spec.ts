@@ -63,8 +63,7 @@ describe('computeDailyBonus', () => {
   });
 
   it('rescues a wiped-out player: one claim funds another wager', () => {
-    // The whole point of the faucet — betting is a closed transfer, so without
-    // this a player who loses their last coin can never play for stakes again.
+    // Betting is zero-sum, so without this a broke player could never bet again.
     const s = computeDailyBonus(0, null, NOW);
     expect(s.amount).toBeGreaterThan(0);
     expect(0 + s.amount).toBe(DAILY_BONUS_FLOOR);

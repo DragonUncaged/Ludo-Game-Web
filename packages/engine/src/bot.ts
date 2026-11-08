@@ -4,9 +4,9 @@ import type { GameState, Move } from './types.js';
 export type BotDifficulty = 'easy' | 'normal';
 
 /**
- * normal: argmax with a little jitter (humanizes ties).
- * easy: softmax sample over the top 3 — makes visible mistakes.
- * rng: uniform [0,1) — inject a seeded PRNG in tests, Math.random-equivalent in prod.
+ * normal: the best-scoring move, with a little jitter so ties don't look scripted.
+ * easy: a softmax pick from the top 3, so it makes visible mistakes.
+ * `rng` returns [0, 1); tests pass a seeded one.
  */
 export function chooseBotMove(
   state: GameState,

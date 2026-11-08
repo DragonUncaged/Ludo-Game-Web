@@ -10,9 +10,9 @@ export class PlayerSchema extends Schema {
   @type(['int8']) tokens = new ArraySchema<number>(-1, -1, -1, -1);
   @type('int32') coinBalance = 100;
   @type('boolean') acceptedBet = false;
-  /** Put coins in when the match started. Bots (and seats added later) never do. */
+  /** Had coins on the line at kickoff. Never true for bots. */
   @type('boolean') staked = false;
-  /** Staked, then left mid-match — pays into the pot but cannot win it. */
+  /** Staked, then quit: pays in but can't win the pot. */
   @type('boolean') forfeitedBet = false;
   /** Equipped character skin id, or '' when the player is on the free default. */
   @type('string') equippedCharacter = '';

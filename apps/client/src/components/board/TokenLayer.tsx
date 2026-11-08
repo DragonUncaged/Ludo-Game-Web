@@ -19,9 +19,8 @@ interface Props {
 }
 
 /**
- * All 16 tokens, absolutely positioned over the board grid. Idle tokens render at
- * truePos (from the schema); tokens with an animation override render at the
- * override position — only the animation queue writes those.
+ * Every token, absolutely positioned over the board. Idle tokens sit where the
+ * schema says; a token mid-animation follows the override the animation queue sets.
  */
 export const TokenLayer = memo(function TokenLayer({
   players,

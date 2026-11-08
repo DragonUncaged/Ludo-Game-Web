@@ -25,7 +25,7 @@ export function BettingSetupPanel({
   const myPlayer = players.find((p) => p.sessionId === mySessionId);
   const myAccepted = myPlayer?.acceptedBet ?? false;
   const canAcceptBet = !balanceLoading && myBalance >= betAmount;
-  // Bots hold no coins — only humans stake, so only humans size the pot.
+  // Bots never stake, so only humans count toward the pot.
   const bettors = players.filter((p) => !p.isBot);
   const acceptedCount = bettors.filter((p) => p.acceptedBet).length;
   const totalPool = betAmount * bettors.length;
@@ -37,9 +37,7 @@ export function BettingSetupPanel({
       <div className="clay bg-board-light p-5">
         <div className="mb-3 font-display text-lg font-extrabold text-ink-light">🎲 Betting Setup</div>
 
-        {/* Bet amount slider and input — never clamp against a balance that hasn't
-            loaded yet (it reads as 0 and would zero the wager). The server
-            re-validates every bettor's balance at start anyway. */}
+        {/* Wait for the wallet: clamping to a balance that hasn't loaded (0) would zero the bet. */}
         {balanceLoading ? (
           <div className="mb-4 rounded-lg bg-seg-light px-3 py-3 text-sm font-bold opacity-60">
             Loading your wallet…
@@ -51,7 +49,6 @@ export function BettingSetupPanel({
               <span>{myBalance} 💰 available</span>
             </div>
 
-            {/* Slider */}
             <div className="flex items-center gap-3">
               <span className="text-xs font-bold opacity-50">0</span>
               <input
@@ -68,7 +65,6 @@ export function BettingSetupPanel({
               <span className="text-xs font-bold opacity-50">{myBalance}</span>
             </div>
 
-            {/* Numeric input */}
             <input
               type="number"
               min="0"
@@ -81,7 +77,6 @@ export function BettingSetupPanel({
           </div>
         )}
 
-        {/* Pool info */}
         <div className="mb-4 rounded-lg bg-seg-light px-3 py-2 text-sm font-bold opacity-70">
           Pool: {totalPool} 💰 ({acceptedCount}/{bettors.length} players ready)
         </div>
@@ -92,7 +87,6 @@ export function BettingSetupPanel({
           </div>
         )}
 
-        {/* Player acceptance status */}
         <div className="space-y-1 rounded-lg bg-seg-light px-3 py-2">
           <div className="text-xs font-bold opacity-50">Players acceptance:</div>
           {players.map((p) => (
@@ -109,12 +103,10 @@ export function BettingSetupPanel({
     );
   }
 
-  // Non-host view
   return (
     <div className="clay bg-board-light p-5">
       <div className="mb-3 font-display text-lg font-extrabold text-ink-light">🎲 Betting Setup</div>
 
-      {/* Current wager display */}
       <div className="mb-4 space-y-2 rounded-lg bg-seg-light px-3 py-3">
         <div className="text-xs font-bold opacity-50">Current wager:</div>
         <div className="text-2xl font-extrabold text-ink-light">{betAmount} 💰</div>
@@ -135,7 +127,6 @@ export function BettingSetupPanel({
         {betAmount === 0 && <div className="mt-2 text-xs font-bold opacity-60">No betting for this game</div>}
       </div>
 
-      {/* Balance check */}
       <div
         className={`mb-4 rounded-lg px-3 py-2 text-sm font-bold ${
           canAcceptBet ? 'bg-seg-light opacity-70' : 'border-2 border-red-500 bg-red-500/10'
@@ -154,7 +145,6 @@ export function BettingSetupPanel({
         )}
       </div>
 
-      {/* Accept/Decline buttons */}
       <div className="mb-4 flex gap-2">
         <button
           onClick={onAcceptBet}
@@ -178,7 +168,6 @@ export function BettingSetupPanel({
         )}
       </div>
 
-      {/* Other players status */}
       <div className="space-y-1 rounded-lg bg-seg-light px-3 py-2">
         <div className="text-xs font-bold opacity-50">Other players:</div>
         {players

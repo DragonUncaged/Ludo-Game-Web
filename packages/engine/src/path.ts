@@ -31,7 +31,7 @@ export function posToGrid(color: PlayerColor, pos: TokenPos, tokenIndex: number)
   return cell;
 }
 
-/** Inclusive list of intermediate positions for an animation, from exclusive → to inclusive. */
+/** Positions a token passes through when moving, excluding `from` and including `to`. */
 export function stepPath(from: TokenPos, to: TokenPos): TokenPos[] {
   if (from === POS_BASE) return [0];
   const steps: TokenPos[] = [];

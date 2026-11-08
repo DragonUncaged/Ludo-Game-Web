@@ -38,7 +38,10 @@ function mirror(state: any): GameSnap {
   };
 }
 
-/** Mirrors a joined room into the stores. Listeners are unbound on cleanup, so StrictMode's double mount is harmless. */
+/**
+ * Mirrors a joined room into the stores. Listeners are unbound on cleanup, so
+ * StrictMode's double mount doesn't process events twice.
+ */
 export function useRoomEvents(room: Room | null): void {
   useEffect(() => {
     if (!room) return;

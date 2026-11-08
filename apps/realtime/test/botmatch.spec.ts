@@ -75,7 +75,7 @@ describe('LudoRoom', () => {
     expect(result.ranking).toHaveLength(4);
     expect(result.ranking.map((r) => r.rank).sort()).toEqual([1, 2, 3, 4]);
     await room.leave();
-  }, 300_000); // real-RNG match length varies (observed 85–130s in FAST mode) — generous margin
+  }, 300_000); // real dice, so length varies (85-130s seen in FAST mode)
 
   it('turn timeout auto-rolls and auto-moves for an idle human', async () => {
     process.env.FIXED_ROLLS = '6'; // idle human's first (auto) roll can leave base
@@ -94,7 +94,7 @@ describe('LudoRoom', () => {
       });
     });
     room.send('startGame');
-    const m = await autoMove; // arrives only via the deadline timeout — we never send roll/move
+    const m = await autoMove; // only the turn timer can produce this; we never roll or move
     expect(m.seat).toBe(0);
     await room.leave();
   }, 30_000);

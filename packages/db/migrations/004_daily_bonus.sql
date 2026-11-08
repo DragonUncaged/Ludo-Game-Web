@@ -1,6 +1,5 @@
--- Daily coin bonus: the only faucet in the economy.
--- Betting moves coins between players and the shop burns them, so without this
--- a guest who wagers away their starting 100 can never bet or buy again.
+-- Daily bonus. Betting only moves coins around and the shop burns them, so
+-- without a faucet a player who loses their starting 100 is stuck for good.
 
 ALTER TABLE guest_users
 ADD COLUMN IF NOT EXISTS last_bonus_at TIMESTAMPTZ;

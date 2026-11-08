@@ -161,7 +161,6 @@ export default function ShopScreen() {
       />
 
       <div className="relative z-10 w-full max-w-4xl">
-        {/* Header */}
         <header className="mb-8 flex items-center justify-between">
           <button
             onClick={() => navigate('/')}
@@ -176,7 +175,6 @@ export default function ShopScreen() {
           </div>
         </header>
 
-        {/* Category Tabs */}
         <div className="clay mb-8 flex flex-wrap gap-2 rounded-2xl bg-board-light p-4 lg:gap-3">
           {categories.map((cat) => (
             <button
@@ -193,21 +191,18 @@ export default function ShopScreen() {
           ))}
         </div>
 
-        {/* Error Message */}
         {error && (
           <div className="clay mb-6 rounded-2xl bg-clay-red/90 px-4 py-3 text-center font-bold text-white">
             {error}
           </div>
         )}
 
-        {/* Loading State */}
         {loading && (
           <div className="clay flex items-center justify-center rounded-2xl bg-board-light py-12">
             <p className="font-body text-lg font-bold opacity-60">Loading cosmetics...</p>
           </div>
         )}
 
-        {/* Cosmetics Grid */}
         {!loading && (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {cosmetics.map((cosmetic) => (
@@ -215,7 +210,6 @@ export default function ShopScreen() {
                 key={cosmetic.id}
                 className="clay rounded-2xl bg-board-light p-4 transition-all hover:shadow-lg"
               >
-                {/* Preview Area */}
                 <div className="clay-pressed mb-3 flex h-32 items-center justify-center rounded-xl bg-seg-light">
                   {cosmetic.thumbnailUrl ? (
                     <img
@@ -228,16 +222,13 @@ export default function ShopScreen() {
                   )}
                 </div>
 
-                {/* Name & Rarity */}
                 <h3 className="font-display text-lg font-bold text-ink-light">{cosmetic.name}</h3>
                 <p className={`text-xs ${rarityColor(cosmetic.rarity)} mb-2`}>
                   {cosmetic.rarity.toUpperCase()}
                 </p>
 
-                {/* Description */}
                 <p className="mb-3 text-xs font-bold text-ink-light opacity-70">{cosmetic.description}</p>
 
-                {/* Price/Status */}
                 {cosmetic.price === 0 ? (
                   <div className="mb-3 flex items-center gap-2 rounded-lg bg-clay-green/20 px-2 py-1">
                     <span className="text-xs font-bold text-[#2c6b3d]">Free</span>
@@ -249,7 +240,6 @@ export default function ShopScreen() {
                   </div>
                 )}
 
-                {/* Buttons */}
                 <div className="flex gap-2">
                   {!cosmetic.owned ? (
                     <button
@@ -282,7 +272,6 @@ export default function ShopScreen() {
           </div>
         )}
 
-        {/* Empty State */}
         {!loading && cosmetics.length === 0 && (
           <div className="clay flex flex-col items-center justify-center rounded-2xl bg-board-light py-12">
             <p className="text-2xl mb-2">📭</p>

@@ -7,7 +7,7 @@ interface Props {
   bob?: boolean;
 }
 
-/** The claymorphism character from the design — pure CSS, color-parameterized. */
+/** The clay character from the design mock. Pure CSS, tinted by `color`. */
 export const ClayCharacter = memo(function ClayCharacter({ color, mode, bob = false }: Props) {
   const dark = shade(color, -0.22);
   const light = shade(color, 0.3);

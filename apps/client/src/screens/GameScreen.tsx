@@ -25,7 +25,7 @@ export default function GameScreen() {
 
   useAnimationQueue(room);
 
-  // transient "no moves / forfeit" toast driven by dice results
+  // Toast when someone has no legal move or throws a third six.
   useEffect(() => {
     if (!room) return;
     let active = true;
@@ -47,7 +47,7 @@ export default function GameScreen() {
     };
   }, [room]);
 
-  // "we played for you" notice when the turn timer auto-moves my seat
+  // Tell me when the turn timer played my move for me.
   useEffect(() => {
     if (!room) return;
     let active = true;
@@ -97,7 +97,6 @@ export default function GameScreen() {
       className="relative z-10 flex w-full flex-col items-center"
       style={{ maxWidth: 'min(680px, 94vmin)' }}
     >
-      {/* header: current turn + settings */}
       <header className="mb-3 flex w-full items-center justify-between gap-3">
         <div
           className="clay flex items-center gap-2.5 py-1.5 pl-2 pr-4"
@@ -190,7 +189,6 @@ export default function GameScreen() {
         </>
       )}
 
-      {/* player plates */}
       <div className="mb-3 grid w-full grid-cols-2 gap-2">
         {snap.players.map((p, i) => (
           <PlayerPlate
@@ -206,7 +204,6 @@ export default function GameScreen() {
         ))}
       </div>
 
-      {/* board */}
       <div className="relative w-full">
         <div
           className="clay aspect-square w-full p-3.5 transition-colors duration-300"
@@ -231,7 +228,6 @@ export default function GameScreen() {
           </div>
         </div>
 
-        {/* floating dice */}
         <div className="absolute -bottom-6 -right-2 z-10">
           <Dice
             value={shownDice || snap.dice || 5}
@@ -243,7 +239,6 @@ export default function GameScreen() {
         </div>
       </div>
 
-      {/* hint bar / toast */}
       <div className="mt-8 h-8 text-center">
         {toast ? (
           <span className="clay bg-board-light px-4 py-1.5 text-sm font-extrabold text-ink-light">

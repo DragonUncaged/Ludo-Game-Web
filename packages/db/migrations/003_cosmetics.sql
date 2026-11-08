@@ -1,8 +1,5 @@
--- Migration: Add cosmetics and shop system tables
--- Adds support for cosmetic items (character, dice, board, emote skins)
--- and player cosmetics ownership/equipment tracking
+-- Shop: the cosmetic catalog, what each player owns and wears, and a purchase log.
 
--- Create cosmetics catalog table
 CREATE TABLE IF NOT EXISTS cosmetics (
   id TEXT PRIMARY KEY,
   category VARCHAR(50) NOT NULL,
@@ -20,7 +17,6 @@ CREATE TABLE IF NOT EXISTS cosmetics (
 CREATE INDEX idx_cosmetics_category ON cosmetics(category);
 CREATE INDEX idx_cosmetics_available ON cosmetics(available);
 
--- Create player_cosmetics table (ownership + equipped tracking)
 CREATE TABLE IF NOT EXISTS player_cosmetics (
   id BIGSERIAL PRIMARY KEY,
   user_id BIGINT NOT NULL,
@@ -38,7 +34,6 @@ CREATE TABLE IF NOT EXISTS player_cosmetics (
 CREATE INDEX idx_player_cosmetics_user ON player_cosmetics(user_id);
 CREATE INDEX idx_player_cosmetics_equipped ON player_cosmetics(user_id, is_equipped);
 
--- Create cosmetics_transactions table (purchase audit log)
 CREATE TABLE IF NOT EXISTS cosmetics_transactions (
   id BIGSERIAL PRIMARY KEY,
   user_id BIGINT NOT NULL,
@@ -55,7 +50,7 @@ CREATE TABLE IF NOT EXISTS cosmetics_transactions (
 CREATE INDEX idx_cosmetics_txn_user_date ON cosmetics_transactions(user_id, purchased_at);
 CREATE INDEX idx_cosmetics_txn_cosmetic ON cosmetics_transactions(cosmetic_id);
 
--- Seed initial cosmetics: 4 defaults (free) + 11 premium
+-- Four free defaults and eleven to buy.
 INSERT INTO cosmetics (id, category, name, description, price, rarity, available) VALUES
   ('char_default', 'character', 'Default Character', 'Your classic avatar', 0, 'common', true),
   ('char_robot', 'character', 'Robot Avatar', 'A sleek robotic companion', 150, 'rare', true),
@@ -77,7 +72,7 @@ INSERT INTO cosmetics (id, category, name, description, price, rarity, available
   ('emote_wave', 'emote', 'Wave', 'Friendly wave', 55, 'uncommon', true)
 ON CONFLICT (id) DO NOTHING;
 
--- Auto-grant all free default cosmetics to existing players
+-- Existing players get the free defaults, equipped.
 INSERT INTO player_cosmetics (user_id, cosmetic_id, is_equipped)
 SELECT DISTINCT guest_users.id, cosmetics.id, true
 FROM guest_users
@@ -91,7 +86,6 @@ WHERE cosmetics.price = 0
   )
 ON CONFLICT (user_id, cosmetic_id) DO NOTHING;
 
--- Grant all other free defaults (dice, board, emote)
 INSERT INTO player_cosmetics (user_id, cosmetic_id, is_equipped)
 SELECT DISTINCT guest_users.id, cosmetics.id, true
 FROM guest_users

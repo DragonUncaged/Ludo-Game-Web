@@ -12,7 +12,7 @@ describe('move scorer', () => {
   it('prefers a capture over a plain advance', () => {
     let g = createGame(['red', 'green', 'yellow', 'blue']);
     g = place(g, 0, [1, 10, -1, -1]);
-    g = place(g, 1, [41, -1, -1, -1]); // abs 3 — capturable by red token 0 with a 1 (rel 1 → 2 = abs 3)
+    g = place(g, 1, [41, -1, -1, -1]); // abs 3, so red token 0 captures with a 1 (rel 1 → 2 = abs 3)
     const roll = applyRoll(g, 1);
     const best = pickBestMove(roll.state, roll.moves);
     expect(best.tokenIndex).toBe(0);

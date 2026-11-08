@@ -54,9 +54,9 @@ export interface Move {
 export interface RollResult {
   state: GameState;
   moves: Move[];
-  /** third consecutive six — roll discarded, turn advanced */
+  /** third six in a row: roll thrown away, turn passes */
   forfeit: boolean;
-  /** no legal move — turn advanced */
+  /** no legal move, turn passes */
   autoPass: boolean;
 }
 

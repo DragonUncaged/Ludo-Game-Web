@@ -1,16 +1,13 @@
--- Add coin system schema
--- Supports guest-based betting without authentication
+-- Coins: a balance per guest plus an audit row for every change.
 
--- Add coin balance tracking to guest users
 ALTER TABLE guest_users
 ADD COLUMN IF NOT EXISTS coin_balance INT NOT NULL DEFAULT 100;
 
--- Track bet amounts in matches for historical purposes
+-- What was staked on each match.
 ALTER TABLE matches
 ADD COLUMN IF NOT EXISTS bet_amount INT DEFAULT 0,
 ADD COLUMN IF NOT EXISTS total_pool INT DEFAULT 0;
 
--- Audit trail for coin transactions
 CREATE TABLE IF NOT EXISTS coin_transactions (
   id              BIGSERIAL PRIMARY KEY,
   user_id         BIGINT NOT NULL REFERENCES guest_users(id) ON DELETE CASCADE,
@@ -25,7 +22,7 @@ CREATE INDEX IF NOT EXISTS idx_coin_transactions_user ON coin_transactions (user
 CREATE INDEX IF NOT EXISTS idx_coin_transactions_match ON coin_transactions (match_id);
 CREATE INDEX IF NOT EXISTS idx_coin_transactions_created ON coin_transactions (created_at DESC);
 
--- Denormalized coin account summary (optional, for analytics)
+-- Nothing writes here yet; kept for economy stats later.
 CREATE TABLE IF NOT EXISTS coin_accounts (
   user_id         BIGINT PRIMARY KEY REFERENCES guest_users(id) ON DELETE CASCADE,
   total_earned    INT NOT NULL DEFAULT 0,

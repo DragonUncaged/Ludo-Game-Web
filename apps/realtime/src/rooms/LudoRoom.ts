@@ -53,7 +53,7 @@ export class LudoRoom extends Room<{ state: LudoState; metadata: { joinCode: str
   maxClients = 4;
   state = new LudoState();
 
-  // Server-private authority — never synced.
+  // Server-only state, never synced to clients.
   private game!: GameState;
   private dice!: DiceRoller;
   private pendingMoves: Move[] = [];
@@ -63,7 +63,7 @@ export class LudoRoom extends Room<{ state: LudoState; metadata: { joinCode: str
   private deviceTokens = new Map<string, string>(); // sessionId → deviceToken
   private nicknames = new Map<string, string>(); // sessionId → nickname as given at join
   private matchId: number | null = null;
-  /** monotonic broadcast counter — lets clients drop duplicate/stale event deliveries */
+  /** Broadcast counter so clients can drop duplicate deliveries. */
   private seq = 0;
   private fixedRolls: number[] = (process.env.FIXED_ROLLS ?? '')
     .split(',')
@@ -83,8 +83,8 @@ export class LudoRoom extends Room<{ state: LudoState; metadata: { joinCode: str
       const seat = this.seatOf(client.sessionId);
       if (!this.isCurrentHuman(seat) || this.state.turnPhase !== 'awaitRoll') return;
       this.doRoll();
-      // A manual roll earns a fresh, full window to CHOOSE the token — otherwise
-      // rolling late in the turn timer means the auto-move steals the decision.
+      // Rolling late shouldn't cost you the choice of token, so a manual roll
+      // restarts the timer for the move.
       if (this.phase() === 'awaitMove') this.grantMoveWindow();
     });
 
@@ -116,8 +116,7 @@ export class LudoRoom extends Room<{ state: LudoState; metadata: { joinCode: str
       const betAmount = Math.max(0, msg?.betAmount ?? 0);
       this.state.betAmount = betAmount;
       this.state.bettingStatus = betAmount === 0 ? 'accepted' : 'in_progress';
-      // Reset acceptance when the amount changes; proposing a wager implies the
-      // host consents to it (the host UI has no separate Accept button).
+      // A new amount has to be accepted again. The host proposed it, so they count as in.
       this.state.players.forEach((p) => {
         p.acceptedBet = betAmount > 0 && p.sessionId === client.sessionId;
       });
@@ -146,7 +145,7 @@ export class LudoRoom extends Room<{ state: LudoState; metadata: { joinCode: str
       client.send('timeResult', { t0: msg?.t0 ?? 0, server: Date.now() });
     });
 
-    // Watchdog: nothing may stall the room.
+    // Safety net: if a turn timer is ever lost, don't let the game hang.
     this.clock.setInterval(() => this.watchdog(), 5000);
 
     await this.setMetadata({ joinCode: code });
@@ -217,9 +216,8 @@ export class LudoRoom extends Room<{ state: LudoState; metadata: { joinCode: str
     }
     if (this.state.roomPhase === 'ended') return;
 
-    // Gone for good mid-match (quit, or never came back). A bot plays the seat out.
-    // Walking out of a wagered match forfeits the stake, otherwise quitting would
-    // be a free way out of a losing bet.
+    // Left mid-match for good (quit, or never reconnected), so a bot plays the seat out.
+    // A staked seat forfeits its coins, or quitting would be a free exit from a losing bet.
     player.connected = false;
     if (player.staked) player.forfeitedBet = true;
     player.isBot = true;
@@ -229,16 +227,11 @@ export class LudoRoom extends Room<{ state: LudoState; metadata: { joinCode: str
     }
   }
 
-  // ── helpers ──────────────────────────────────────────────────────────────
-
   private seatOf(sessionId: string): number {
     return this.state.players.findIndex((p) => p.sessionId === sessionId);
   }
 
-  /**
-   * Nickname as the player typed it. `onLeave` appends a 🤖 marker for the
-   * scoreboard, and that decoration must not leak into their stored profile.
-   */
+  /** The nickname as typed. onLeave adds a 🤖 to the display name, which shouldn't reach the DB. */
   private storedNickname(p: PlayerSchema): string {
     return (this.nicknames.get(p.sessionId) ?? p.nickname).slice(0, 20);
   }
@@ -255,7 +248,7 @@ export class LudoRoom extends Room<{ state: LudoState; metadata: { joinCode: str
     return !!p && (p.isBot || !p.connected);
   }
 
-  /** Widened read — turnPhase is mutated by doRoll/doMove, defeating TS narrowing. */
+  /** doRoll/doMove change turnPhase behind TS's back, so read it without narrowing. */
   private phase(): string {
     return this.state.turnPhase;
   }
@@ -272,10 +265,7 @@ export class LudoRoom extends Room<{ state: LudoState; metadata: { joinCode: str
     this.state.consecutiveSixes = this.game.consecutiveSixes;
   }
 
-  // ── game flow ────────────────────────────────────────────────────────────
-
   private startGame() {
-    // Validate betting if needed
     if (this.state.betAmount > 0) {
       for (const p of this.state.players) {
         if (p.isBot) continue;
@@ -290,8 +280,7 @@ export class LudoRoom extends Room<{ state: LudoState; metadata: { joinCode: str
       }
     }
 
-    // Freeze the bettor list now: everyone here at the whistle has coins on the
-    // line for the rest of the match, whatever happens to their seat later.
+    // Whoever is seated at kickoff has coins on the line until the end, even if they leave.
     if (this.state.betAmount > 0) {
       this.state.players.forEach((p) => (p.staked = !p.isBot));
     }
@@ -507,8 +496,7 @@ export class LudoRoom extends Room<{ state: LudoState; metadata: { joinCode: str
         const results = await Promise.all(
           this.state.players.map(async (p, seat) => {
             const token = this.deviceTokens.get(p.sessionId);
-            // A player who walked out is flagged isBot for the UI but is still a
-            // real account that owes the pot — key off the device token instead.
+            // Quitters are flagged isBot but still owe their stake, so go by device token.
             const userId = token ? await upsertGuestUser(token, this.storedNickname(p)) : null;
             return {
               seat,
@@ -521,8 +509,7 @@ export class LudoRoom extends Room<{ state: LudoState; metadata: { joinCode: str
         );
         await completeMatch(matchId, results);
 
-        // Settle the pot against the bettor list frozen at kickoff — `isBot` is
-        // true for anyone who quit mid-match, and they must still pay in.
+        // Settle against `staked` (fixed at kickoff), not `isBot`.
         const settlement = computeSettlement(
           this.state.betAmount,
           results.map((r) => ({

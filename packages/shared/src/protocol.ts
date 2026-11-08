@@ -30,7 +30,7 @@ export interface TimeIntent {
 
 // server → client
 export interface DiceRolledEvent {
-  /** monotonic per-room broadcast counter — drop events with seq <= last seen */
+  /** Grows with every broadcast; drop anything not newer than the last one seen. */
   seq?: number;
   seat: number;
   value: number;
@@ -46,7 +46,7 @@ export interface CaptureInfo {
   fromPos: number;
 }
 export interface MoveAppliedEvent {
-  /** monotonic per-room broadcast counter — drop events with seq <= last seen */
+  /** Grows with every broadcast; drop anything not newer than the last one seen. */
   seq?: number;
   seat: number;
   tokenIndex: number;
