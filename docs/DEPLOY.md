@@ -1,53 +1,39 @@
-# Deployment
+# Deploying
 
-## The short answer on Vercel
+The client is static and can go anywhere. The realtime server can't run on serverless platforms:
+rooms keep their state in process memory behind long-lived websockets, so it needs a normal,
+always-on Node process. The api could be serverless but it's simpler to host it next to realtime.
 
-**Vercel works for the frontend, not for the game server.** The split:
+A setup that works: client on Vercel, realtime and api on Railway, Postgres on Neon.
 
-| Piece                       | Vercel?                         | Why                                                                                                                                                                                                                                                                              |
-| --------------------------- | ------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `apps/client` (static SPA)  | ✅ Yes — ideal, free            | Just static files after `vite build`                                                                                                                                                                                                                                             |
-| `apps/api` (stateless REST) | ⚠️ Possible but not recommended | Would need rework into serverless functions; a $5 Railway service is simpler                                                                                                                                                                                                     |
-| `apps/realtime` (Colyseus)  | ❌ **No**                       | Rooms hold live match state **in process memory** over long-lived websockets. Vercel's serverless/websocket model can't guarantee the same instance keeps a connection or its memory — the room's authoritative state would vanish mid-game. It needs a persistent Node process. |
+## Backend (Railway)
 
-So yes: **FE on Vercel, BE (realtime + api) on a persistent-process host** (Railway recommended; Fly.io if you want to pick regions close to players).
+One project, two services, both built from the repo root. Make sure they run Node 26
+(`engines` and `.nvmrc` both say so) and pnpm 12 (`packageManager`).
 
-## Step-by-step
+|              | realtime                                             | api                                                                       |
+| ------------ | ---------------------------------------------------- | ------------------------------------------------------------------------- |
+| Build        | `pnpm install --frozen-lockfile`                     | `pnpm install --frozen-lockfile`                                          |
+| Start        | `pnpm --filter @ludo/realtime start`                 | `pnpm --filter @ludo/api start`                                           |
+| Health check | `/health`                                            | `/health`                                                                 |
+| Env          | `DATABASE_URL`, `REALTIME_PORT=$PORT`, `CORS_ORIGIN` | `DATABASE_URL`, `API_PORT=$PORT`, `CORS_ORIGIN`, `ADMIN_TOKEN` (optional) |
 
-### 1. Backend on Railway (~$5/mo total)
+- Run migrations once against the production database: `pnpm --filter @ludo/db migrate` with
+  `DATABASE_URL` set.
+- Keep realtime at one instance. Scale it up, not out. Several instances would need Colyseus's
+  Redis presence and driver.
+- `CORS_ORIGIN` takes a comma-separated list, e.g. `https://ludo-royale.vercel.app`.
 
-Create one Railway project from this repo with **two services**:
+## Client (Vercel)
 
-|                | Service A (realtime)                                                               | Service B (api)                                                               |
-| -------------- | ---------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
-| Root directory | repo root                                                                          | repo root                                                                     |
-| Build          | `pnpm install`                                                                     | `pnpm install`                                                                |
-| Start command  | `pnpm --filter @ludo/realtime start`                                               | `pnpm --filter @ludo/api start`                                               |
-| Env vars       | `DATABASE_URL`, `REALTIME_PORT=$PORT`, `CORS_ORIGIN=https://<your-app>.vercel.app` | `DATABASE_URL`, `API_PORT=$PORT`, `CORS_ORIGIN=https://<your-app>.vercel.app` |
-| Health check   | `/health`                                                                          | `/health`                                                                     |
+- Root directory `apps/client`, build command `pnpm build`, output `dist`.
+- `apps/client/vercel.json` rewrites every path to `index.html`, so links like `/room/ABC123`
+  work.
+- Set `VITE_WS_URL=wss://<realtime host>` and `VITE_API_URL=https://<api host>`. They're baked in
+  at build time, so redeploy after changing them.
 
-Notes:
+## After the first deploy
 
-- Railway injects `$PORT`; both servers read their port from env.
-- Run migrations once: `pnpm --filter @ludo/db migrate` (locally against the same `DATABASE_URL`, or as a Railway one-off command).
-- **One instance only** for realtime — rooms live in memory. Scale up (CPU/RAM) not out; going multi-instance later requires the Colyseus Redis presence/driver.
-- Set a billing alert; Railway has no hard spend cap.
-
-### 2. Frontend on Vercel ($0)
-
-- Import the repo in Vercel; set **Root Directory** to `apps/client`.
-- Build command: `pnpm build` · Output directory: `dist`.
-- `apps/client/vercel.json` already handles the SPA rewrite (deep links like `/room/ABC123`).
-- Env vars (Production): `VITE_WS_URL=wss://<realtime>.up.railway.app` and `VITE_API_URL=https://<api>.up.railway.app`.
-  Use `wss://` (TLS) — Railway terminates TLS for you.
-
-### 3. After first deploy — checklist
-
-1. `https://<api>/health` → `{ ok: true, db: true }`
-2. `https://<realtime>/health` → `{ ok: true }`
-3. Open the Vercel URL on two phones, create/join a room, play.
-4. Check Neon: `SELECT * FROM matches ORDER BY id DESC LIMIT 5;`
-
-## Alternative: single backend service
-
-To save a service, you can mount the api routes inside the realtime express app (one process, one $5 service). Trade-off: a heavy stats query shares the event loop with live games, and you lose independent scaling — fine for MVP, split later. (The code split already makes this a 10-line change in `apps/realtime/src/index.ts`.)
+1. `https://<api>/health` returns `{ "ok": true, "db": true }`.
+2. `https://<realtime>/health` returns `{ "ok": true }`.
+3. Open the site on two devices, create a room on one and join with the code on the other.

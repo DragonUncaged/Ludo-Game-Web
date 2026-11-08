@@ -1,74 +1,88 @@
-# Realtime Protocol
+# Realtime protocol
 
-Room name: `ludo`. Transport: Colyseus (websocket). Types live in `packages/shared/src/protocol.ts`.
+Room name `ludo`, over Colyseus websockets. Payload types are in `packages/shared/src/protocol.ts`.
 
-## Synced schema (server → all clients, delta-synced)
+## Synced state
 
 ```
 LudoState {
   roomPhase: 'waiting' | 'playing' | 'ended'
-  joinCode: string
-  hostSessionId: string
+  joinCode, hostSessionId: string
   players: PlayerSchema[] {
-    sessionId, nickname, color, isBot, connected,
-    finishedRank: int8        // 0 = playing, 1..4 = placement
-    tokens: int8[4]           // position encoding (see GAME_RULES.md)
+    sessionId, nickname, color: string
+    isBot, connected: boolean
+    finishedRank: int8         // 0 while playing, then 1..4
+    tokens: int8[4]            // see GAME_RULES.md
+    coinBalance: int32
+    acceptedBet, staked, forfeitedBet: boolean
+    equippedCharacter: string  // shop skin id, '' for the default
   }
-  currentPlayer: int8         // seat index, -1 in lobby
+  currentPlayer: int8          // seat index, -1 in the lobby
   turnPhase: 'awaitRoll' | 'awaitMove' | 'animating'
-  dice: int8                  // last roll, 0 = none
-  consecutiveSixes: uint8
-  turnSeconds: uint8
-  turnDeadline: number        // server epoch ms (clients subtract clock offset)
+  dice: int8                   // last roll, 0 for none
+  consecutiveSixes, turnSeconds: uint8
+  turnDeadline: number         // server epoch ms
   diceMode: 'fair' | 'dynamic'
+  betAmount: int32
+  bettingStatus: 'not_started' | 'in_progress' | 'accepted'
 }
 ```
 
-Server-private (never synced): authoritative engine `GameState`, dice roller + per-seat
-`rollsSinceSix`, `turnNonce`, pending timers, DB row ids.
+The engine's own `GameState`, the dice roller, timers and database ids stay on the server.
 
-## Client → server intents
+## Joining
 
-| Message      | Payload                               | Guards                                                           |
-| ------------ | ------------------------------------- | ---------------------------------------------------------------- |
-| `roll`       | `{}`                                  | sender is current human seat, `turnPhase === 'awaitRoll'`        |
-| `move`       | `{ tokenIndex }`                      | sender is current, `awaitMove`, tokenIndex in legal set          |
-| `startGame`  | `{}`                                  | host only, `waiting`; fills empty seats with bots                |
-| `setOptions` | `{ seats?, diceMode?, turnSeconds? }` | host only, `waiting`                                             |
-| `time`       | `{ t0 }`                              | any; server replies `timeResult { t0, server }` for clock offset |
+Options: `{ nickname, deviceToken, create?: { seats, diceMode, turnSeconds } }`.
 
-Join options: `{ nickname, deviceToken, create?: { seats, diceMode, turnSeconds } }`.
+A join is refused with code `4101` once the game has started and `4102` if the same device is
+already in the room (`JOIN_ERROR` in shared). Colyseus reserves 4000 to 4010 for itself.
 
-## Server → client events (broadcast)
+## Client to server
 
-| Event                       | Payload                                                                                                                     |
-| --------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
-| `diceRolled`                | `{ seat, value, legalTokens: number[], autoPass, forfeit }`                                                                 |
-| `moveApplied`               | `{ seat, tokenIndex, path: number[], captures: [{seat, tokenIndex, fromPos}], finishedToken: boolean, extraRoll: boolean }` |
-| `turnChanged`               | `{ seat, deadline }`                                                                                                        |
-| `playerFinished`            | `{ seat, rank }`                                                                                                            |
-| `gameOver`                  | `{ ranking: [{seat, nickname, rank, captures, tokensHome}] }`                                                               |
-| `joinError` (single client) | `{ code: 'ROOM_FULL'                                                                                                        | 'ROOM_STARTED' | 'ALREADY_IN_ROOM' }` |
+| Message        | Payload                               | Who / when                                |
+| -------------- | ------------------------------------- | ----------------------------------------- |
+| `roll`         |                                       | Current player, `awaitRoll`               |
+| `move`         | `{ tokenIndex }`                      | Current player, `awaitMove`, legal token  |
+| `startGame`    |                                       | Host, lobby. Fills empty seats with bots  |
+| `setOptions`   | `{ seats?, diceMode?, turnSeconds? }` | Host, lobby                               |
+| `setBetAmount` | `{ betAmount }`                       | Host, lobby. Resets everyone's acceptance |
+| `acceptBet`    |                                       | Any player, lobby                         |
+| `declineBet`   |                                       | Any player, lobby. Voids the wager        |
+| `time`         | `{ t0 }`                              | Anyone. Answered with `timeResult`        |
 
-Schema is the ground truth (late join / reconnect hydration). Events carry choreography —
-the step path and capture list drive client animations; clients never derive animations
-from state diffs. There are **no timer tick messages**: the timer ring renders from
-`turnDeadline − clockOffset` (offset estimated once via the `time` handshake).
+## Server to clients
 
-## Turn flow (server-side, single-threaded Colyseus clock)
+| Event            | Payload                                                                     |
+| ---------------- | --------------------------------------------------------------------------- |
+| `turnChanged`    | `{ seat, deadline }`                                                        |
+| `diceRolled`     | `{ seq, seat, value, legalTokens, autoPass, forfeit, auto }`                |
+| `moveApplied`    | `{ seq, seat, tokenIndex, path, captures, finishedToken, extraRoll, auto }` |
+| `playerFinished` | `{ seat, rank }`                                                            |
+| `gameOver`       | `{ ranking: [{ seat, nickname, rank, captures, tokensHome }] }`             |
+| `error`          | `{ message }`, when the host's start is refused (bet not accepted, etc.)    |
+| `timeResult`     | `{ t0, server }`, only to the sender                                        |
 
-1. `beginTurn(seat)`: `turnNonce++`, deadline = now + turnSeconds (one deadline covers roll
-   **and** move). Bot/disconnected seats are scheduled with human-ish delays instead.
-2. `roll` → dice.roll → `engine.applyRoll` → broadcast `diceRolled`. Forfeit/auto-pass →
-   advance after 1.2s. Else `awaitMove`.
-3. `move` → `engine.applyMove` → broadcast `moveApplied` → `animating` → server-side fixed
-   delay (`200 + 120×steps + 900 if capture` ms) → extra roll ? same seat : advance.
-4. Timeout (nonce-guarded): auto-roll if needed, then `pickBestMove` — a timed-out player
-   always gets a sensible move. Watchdog force-advances any turn stuck 5s past deadline.
+The schema is the source of truth. Events carry the choreography: the client animates `path`
+and `captures` from `moveApplied` instead of diffing state. `seq` lets the client drop a
+duplicate delivery. There are no timer ticks; the client draws the countdown from
+`turnDeadline` minus the clock offset it measured with `time`.
 
-## Reconnect
+## Turn flow
 
-Playing-phase disconnect → seat marked `connected=false`, `allowReconnection(client, 120)`.
-Client stores `reconnectionToken` in sessionStorage keyed by roomId and tries `reconnect()`
-first on load. Success rehydrates from schema (no animations). 120s timeout converts the
-seat to a bot permanently. Lobby-phase leave removes the player (host migrates if needed).
+1. `beginTurn`: bump the turn nonce, set a deadline of `turnSeconds`, broadcast `turnChanged`.
+   Bots and disconnected players get scheduled with a short random delay instead.
+2. `roll`: roll, `applyRoll`, broadcast `diceRolled`. On a forfeit or no legal move the turn
+   passes after a short pause. A manual roll restarts the deadline for the move.
+3. `move`: `applyMove`, broadcast `moveApplied`, then wait out the animation
+   (`200 + 120 × steps`, plus 900 ms for a capture) before the next turn or extra roll.
+4. On timeout the server rolls if needed and plays the best-scoring move. Timers check the nonce
+   so stale ones do nothing, and a watchdog restarts any turn stuck well past its deadline.
+
+## Reconnecting
+
+If a player drops mid-game, `onDrop` marks them disconnected and holds the seat for 120 seconds.
+The client keeps `room.reconnectionToken` in sessionStorage and tries `client.reconnect()` before
+joining fresh, so a page refresh lands back in the same seat (`onReconnect`). If the window runs
+out, or the player leaves on purpose, `onLeave` hands the seat to a bot for the rest of the game
+and a staked player forfeits their stake. Leaving in the lobby just frees the seat, and the host
+role passes on if needed.
