@@ -26,9 +26,9 @@ One project, two services, both built from the repo root. Make sure they run Nod
 
 ## Client (Vercel)
 
-- Root directory `apps/client`, build command `pnpm build`, output `dist`.
-- `apps/client/vercel.json` rewrites every path to `index.html`, so links like `/room/ABC123`
-  work.
+- Import the repo and leave the root directory as the repo root. `vercel.json` sets the build
+  (`pnpm --filter @ludo/client build`), the output (`apps/client/dist`) and a rewrite of every
+  path to `index.html`, so links like `/room/ABC123` work.
 - Set `VITE_WS_URL=wss://<realtime host>` and `VITE_API_URL=https://<api host>`. They're baked in
   at build time, so redeploy after changing them.
 
